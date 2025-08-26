@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Custom ignores for this project
+experiment_log/
+datasets/*
+keras/pisa_cVAE.ipynb
