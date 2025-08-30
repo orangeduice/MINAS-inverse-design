@@ -80,6 +80,8 @@ class ExperimentTracker:
             "model_type": model_type,
             "hyperparameters": hyperparameters,
             "wavelengths": wavelengths,
+            # test_loss,
+            # val_loss,
         }
         
         file_path = os.path.join(self.training_dir, f"{train_id}.json")

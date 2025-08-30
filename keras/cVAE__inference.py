@@ -1,3 +1,5 @@
+# %%
+
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
@@ -40,11 +42,11 @@ tracker = ExperimentTracker()
 
 keras.backend.clear_session()
 
-train_id = 1 # ID of the trained model to load
+train_id = 5 # ID of the trained model to load
 
 model_folder = "models"
 
-decoder_file = os.path.join(model_folder, train_id,"pisa_cVAE_dec.h5")
+decoder_file = os.path.join(model_folder, str(train_id),"pisa_cVAE_dec.h5")
 
 # load trained decoder
 decoder = keras.models.load_model(decoder_file)
@@ -55,7 +57,7 @@ print("loaded decoder from ", decoder_file)
 
 # %%
 
-target_id = 1  # ID of the target to use
+target_id = 5  # ID of the target to use
 
 target_info = tracker.get_inference_target(target_id)
 
@@ -67,12 +69,15 @@ print(target_spectra)
 # %%
 # evaluate 9 positions in latent space
 num_pred = 9
-z_sample = np.array([[i, i] for i in np.linspace(-1, 1, num_pred)])
+z_sample =  np.random.randn(num_pred, 2)  #np.array([[i, o] for i, o in zip( np.random.uniform(-1, 1, 9), np.random.uniform(-1, 1, 9))])
+
+# z_sample = np.array([[i, i] for i in np.linspace(-1, 1, num_pred)])
 
 target_spectra_tf = tf.expand_dims(tf.convert_to_tensor(target_spectra),1)
 target_spectra_tf = tf.repeat(tf.expand_dims(target_spectra_tf, axis=0), repeats=num_pred, axis=0)
 
 print(target_spectra_tf.shape)
+print(z_sample)
 
 
 # %%
@@ -111,16 +116,18 @@ target_spectra = np.hstack((wavelengths_cut, target))
 # %%
 # save everything
 
+
+
 inference_parameters = {
-    "latent_sampling_details": "np.linspace(-1, 1, num_pred)",
-    "num_predictions": num_pred,
+    "latent_sampling_details": "[uniform(-1, 1), uniform(-1, 1)]",
+    "num_predictions": int(num_pred),
     "z_samples": z_sample.tolist(),
 }
 inference_id = tracker.create_inference_run(
     train_id=train_id,
     target_id=target_id,
     inference_params=inference_parameters,
-    results_path=f"results/"
+    results_path="to be removed"
 )
 
 print(f"Logged new inference run. Inference ID: {inference_id}")
@@ -134,7 +141,7 @@ full_details = tracker.get_full_run_details(inference_id)
 
 if full_details:
     print("Successfully retrieved all linked information by reading files:")
-    pprint(full_details)
+    pprint.pprint(full_details)
 else:
     print(f"Could not find details for inference ID: {inference_id}")
 
@@ -146,9 +153,13 @@ print(f"Saving predicted designs with full run ID: {run_id}")
 # designs_predict
 # designs_predict_physical.T
 
-designs_folder = os.path.join("keras","designs", str(run_id))
+designs_folder = os.path.join("designs", str(run_id))
+
+os.makedirs(designs_folder, exist_ok=True)
 
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs.csv'), designs_predict, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs_physical.csv'), designs_predict_physical.T, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_target_spectra.csv'), target_spectra , delimiter=',')
 
+
+# %%

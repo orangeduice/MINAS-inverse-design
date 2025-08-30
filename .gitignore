@@ -207,6 +207,12 @@ marimo/_lsp/
 __marimo__/
 
 # Custom ignores for this project
-experiment_log/
-datasets/*
+keras/experiment_log/
+keras/datasets/*.h5
+keras/datasets/*.pkl
 keras/pisa_cVAE.ipynb
+keras/models/*/*.h5
+keras/models/*/*.keras
+
+keras/designs/*/*.csv
+

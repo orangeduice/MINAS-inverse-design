@@ -9,6 +9,8 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 
+from tensorflow.keras.callbacks import EarlyStopping
+
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -46,7 +48,7 @@ keras.backend.clear_session()
 
 # some config for the cVAE
 latent_dim = 2   # for interpretability
-N_blocks = 4     # Nr of resblocks between upsamplings
+N_blocks = 3     # Nr of resblocks between upsamplings
 
 
 # input layers
@@ -157,18 +159,35 @@ reduce_lr_patience = 5
 ## ReduceLROnPlateau
 reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=reduce_lr_factor, patience=reduce_lr_patience, verbose=1)
 
-# fit the model with BN --> increasing batchsize schdedule
-hist = None  # global history after BS incrase
-for i in range(4):  # 4x50 epochs, doubling batchsize
-    _h = cVAE.fit(x=[x_train, y_train], y=[x_train],
-                validation_split=.2,
-                batch_size=16 * 2**i, epochs=30,
-                callbacks = [reduce_lr])
-    if hist is None:
-        hist = _h
-    else:
-        for k in hist.history:
-            hist.history[k] = np.concatenate([hist.history[k], _h.history[k]])
+early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1, restore_best_weights=True)
+
+
+# Choose a single, reasonable batch size
+BATCH_SIZE = 32
+
+# Train in a single, long run. Let the callbacks do their job.
+# Set a high number of epochs; early stopping will find the right time to halt.
+hist = cVAE.fit(
+    x=[x_train, y_train],
+    y=[x_train],
+    validation_split=.2,
+    batch_size=BATCH_SIZE,
+    epochs=90,  # A large number
+    callbacks=[reduce_lr, early_stopping]
+)
+
+# # fit the model with BN --> increasing batchsize schdedule
+# hist = None  # global history after BS incrase
+# for i in range(4):  # 4x50 epochs, doubling batchsize
+#     _h = cVAE.fit(x=[x_train, y_train], y=[x_train],
+#                 validation_split=.2,
+#                 batch_size=16 * 2**i, epochs=30,
+#                 callbacks = [reduce_lr, early_stopping])
+#     if hist is None:
+#         hist = _h
+#     else:
+#         for k in hist.history:
+#             hist.history[k] = np.concatenate([hist.history[k], _h.history[k]])
 
 # %%
 # plot loss
@@ -186,9 +205,9 @@ plt.show()
 tracker = ExperimentTracker()
 
 cvae_hyperparams = {
-        "latent_dim": latent_dim,
-        "encoder_resnet_blocks": N_blocks,
-        "decoder_resnet_blocks": N_blocks,
+        "latent_dim": int(latent_dim),
+        "encoder_resnet_blocks": int(N_blocks),
+        "decoder_resnet_blocks": int(N_blocks),
         "learning_rate": lr,
         "epochs": "4 X 30",
         "batch_size_schedule": "16*2^i, i=0..3",
@@ -196,20 +215,23 @@ cvae_hyperparams = {
         "beta_kl_loss": beta,
         "reduce_lr_factor": reduce_lr_factor,
         "reduce_lr_patience": reduce_lr_patience,
-        "y_dim": 64,
+        "y_dim": "64",
+        "misc": "reconstruction loss mse, with early stopping, no br scheduling"
     }
 
 train_id = tracker.create_training_run(
         model_type="cVAE",
         hyperparameters=cvae_hyperparams,
-        wavelengths=wavelengths,
+        wavelengths=wavelengths.tolist(),
+        # test_loss=hist.history['loss'],
+        # val_loss=hist.history['val_loss'],
     )
 
 model_folder = "models"
 
-full_model_file = os.path.join(model_folder, train_id, "pisa_cVAE_full.h5")
-encoder_file = os.path.join(model_folder, train_id, "pisa_cVAE_enc.h5")
-decoder_file = os.path.join(model_folder, train_id, "pisa_cVAE_dec.h5")
+full_model_file = os.path.join(model_folder, str(train_id), "pisa_cVAE_full.h5")
+encoder_file = os.path.join(model_folder, str(train_id), "pisa_cVAE_enc.h5")
+decoder_file = os.path.join(model_folder, str(train_id), "pisa_cVAE_dec.h5")
 
 cVAE.save(full_model_file)
 encoder.save(encoder_file)
@@ -218,3 +240,4 @@ decoder.save(decoder_file)
 print(f"Logged new training run. Train ID: {train_id}")
 print(f"Data saved in: {tracker.training_dir}/{train_id}.json")
 print("saved models to ", full_model_file, encoder_file, decoder_file)
+# %%
