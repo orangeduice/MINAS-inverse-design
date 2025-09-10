@@ -160,6 +160,9 @@ os.makedirs(designs_folder, exist_ok=True)
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs.csv'), designs_predict, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs_physical.csv'), designs_predict_physical.T, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_target_spectra.csv'), target_spectra , delimiter=',')
+np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs_physical.txt'), designs_predict_physical[:, :4], delimiter=' ', header='h_pill sep d_pill w_pill', comments='') # used for re simulation
+
+
 
 
 # %%
