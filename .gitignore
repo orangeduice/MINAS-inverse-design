@@ -214,5 +214,4 @@ keras/pisa_cVAE.ipynb
 keras/models/*/*.h5
 keras/models/*/*.keras
 
-keras/designs/*/*.csv
-
+keras/designs/*/*
