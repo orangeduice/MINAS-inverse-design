@@ -40,7 +40,9 @@ def sync_files_rsync(config, local_path, remote_path):
     # The rsync command
     command = [
         "rsync",
-        "-e", "ssh",
+        "-a",
+        "-e",
+        "ssh",
         local_path,
         destination
     ]
@@ -72,7 +74,7 @@ def submit_slurm_job(run_id, config, remote_job_script_path):
         "ssh",
         f"{username}@{hostname}",
         f"sbatch {remote_job_script_path}",
-        run_id
+        run_id.replace('-', '')
     ]
     
     try:

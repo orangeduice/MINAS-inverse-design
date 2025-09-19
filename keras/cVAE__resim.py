@@ -7,15 +7,15 @@ import os
 import slurm_job_submitter
 
 
-run_id = "1-1-1"
+run_id = "23-15-55"
 
 designs_folder = os.path.join("designs", str(run_id))
 
-local_param_file = os.path.join(designs_folder, run_id+'_suggested_designs_physical.txt')
+local_param_file = os.path.join(designs_folder, run_id.replace('-', '')+'_params.csv')
 
-remote_path = "/Documents/" # Location on Iridis where files will be copied to
+remote_path = "/home/okcj1g19/" # Location on Iridis where files will be copied to
 
-job_script = "run_re_simulation.sh"
+job_script = "js_micropillar_resim.sh"
 
 slurm_job_submitter.run_submission(run_id, local_param_file, remote_path, job_script)
 

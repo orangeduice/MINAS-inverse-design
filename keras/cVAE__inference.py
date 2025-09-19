@@ -23,7 +23,7 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
-data_path = 'datasets/pisa_data.h5'
+data_path = 'datasets/pisa_data_expanded_h.h5'
 
 # load data and scalers
 x_train, x_test, y_train, y_test, wavelengths = helper.load_reflection_spectra_data(
@@ -35,6 +35,8 @@ print('x_train shape:', x_train.shape)
 print('y_train shape:', y_train.shape)
 print('x_test shape:', x_test.shape)
 print('y_test shape:', y_test.shape)
+# %%
+print('{}_scalers.pkl'.format(os.path.splitext(data_path)[0]))
 
 # %%
 
@@ -42,7 +44,7 @@ tracker = ExperimentTracker()
 
 keras.backend.clear_session()
 
-train_id = 5 # ID of the trained model to load
+train_id = 23 # ID of the trained model to load
 
 model_folder = "models"
 
@@ -57,7 +59,7 @@ print("loaded decoder from ", decoder_file)
 
 # %%
 
-target_id = 5  # ID of the target to use
+target_id = 15  # ID of the target to use
 
 target_info = tracker.get_inference_target(target_id)
 
@@ -119,7 +121,7 @@ target_spectra = np.hstack((wavelengths_cut, target))
 
 
 inference_parameters = {
-    "latent_sampling_details": "[uniform(-1, 1), uniform(-1, 1)]",
+    "latent_sampling_details": "np.random.randn(num_pred, 2) ",
     "num_predictions": int(num_pred),
     "z_samples": z_sample.tolist(),
 }
@@ -157,10 +159,15 @@ designs_folder = os.path.join("designs", str(run_id))
 
 os.makedirs(designs_folder, exist_ok=True)
 
+
+# %%
+run_id_striped = run_id.replace('-', '')
+print(run_id_striped)
+
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs.csv'), designs_predict, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs_physical.csv'), designs_predict_physical.T, delimiter=',')
 np.savetxt(os.path.join(designs_folder, run_id+'_target_spectra.csv'), target_spectra , delimiter=',')
-np.savetxt(os.path.join(designs_folder, run_id+'_suggested_designs_physical.txt'), designs_predict_physical[:, :4], delimiter=' ', header='h_pill sep d_pill w_pill', comments='') # used for re simulation
+np.savetxt(os.path.join(designs_folder, run_id_striped+'_params.csv'), designs_predict_physical[:, :4], delimiter=',', header='h_pill, sep, d_pill, w_pill', comments='') # used for re simulation
 
 
 
