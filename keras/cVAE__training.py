@@ -25,7 +25,7 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
-data_path = 'datasets/pisa_data.h5'
+data_path = 'datasets/pisa_data_expanded_h.h5'
 
 # load data and scalers
 x_train, x_test, y_train, y_test, wavelengths = helper.load_reflection_spectra_data(
@@ -127,7 +127,7 @@ cVAE.summary()
 
 input_dim = np.product(x_train.shape[1:])
 latent_dim = np.product(z.shape[1:])
-beta = 0.001   # weight of KL loss. If too high, reconstruction will suffer.
+beta = 0.0001   # weight of KL loss. If too high, reconstruction will suffer.
 
 # print(input_dim)
 
@@ -147,7 +147,42 @@ cVAE.add_metric(kl_loss, name='kl_loss', aggregation='mean')
 
 # %%
 
-lr = 0.0002
+class PersistentEarlyStopping(EarlyStopping):
+    def __init__(self, *args, **kwargs):
+        super(PersistentEarlyStopping, self).__init__(*args, **kwargs)
+        self.best = np.Inf if self.monitor_op == np.less else -np.Inf
+        self.wait = 0
+        self._first_run = True
+
+    def on_train_begin(self, logs=None):
+        if self._first_run:
+            # On the first `fit()` call, reset everything
+            self.wait = 0
+            self.stopped_epoch = 0
+            self.best = np.Inf if self.monitor_op == np.less else -np.Inf
+            self._first_run = False
+
+
+class PersistentReduceLROnPlateau(ReduceLROnPlateau):
+    def __init__(self, *args, **kwargs):
+        super(PersistentReduceLROnPlateau, self).__init__(*args, **kwargs)
+        self._first_run = True
+
+    def on_train_begin(self, logs=None):
+        if self._first_run:
+            # On the first `fit()` call, run the original setup
+            super().on_train_begin(logs)
+            self._first_run = False
+        else:
+            # On subsequent calls, just ensure the LR is correctly set
+            # without resetting the counters or the 'best' value.
+            self.model.optimizer.lr.assign(self.model.optimizer.lr)
+
+
+
+# %%
+
+lr = 0.0001
 
 # compile the model
 optimizer = keras.optimizers.AdamW(learning_rate=lr)
@@ -157,24 +192,57 @@ reduce_lr_factor = 1/3
 reduce_lr_patience = 5
 
 ## ReduceLROnPlateau
-reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=reduce_lr_factor, patience=reduce_lr_patience, verbose=1)
+#reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=reduce_lr_factor, patience=reduce_lr_patience, verbose=1)
 
-early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1, restore_best_weights=True)
 
+#early_stopping = EarlyStopping(monitor='val_loss', patience=10, verbose=1, restore_best_weights=True)
+
+# Instantiate your PERSISTENT callbacks ONCE before the loop
+reduce_lr = PersistentReduceLROnPlateau(
+    monitor='val_loss', factor=0.5, patience=5, verbose=1
+)
+
+early_stopping = PersistentEarlyStopping(
+    monitor='val_loss', patience=15, verbose=1, restore_best_weights=True
+)
+
+hist = None
+for i in [1, 1, 2, 2]:#range(4):
+    print(f"\n--- Starting Training Round {i+1} with batch_size={16 * 2**i} ---")
+    _h = cVAE.fit(
+        x=[x_train, y_train], y=[x_train],
+        validation_split=.3,
+        batch_size=32 * 2**i,
+        epochs=8, # You can increase epochs per round now
+        # Pass the SAME callback objects each time
+        callbacks=[reduce_lr, early_stopping]
+    )
+
+    # Your history concatenation logic remains the same
+    if hist is None:
+        hist = _h
+    else:
+        for k in hist.history:
+            hist.history[k] = np.concatenate([hist.history[k], _h.history[k]])
+
+    # Crucially, we must check if early stopping was triggered
+    if cVAE.stop_training:
+        print(f"Early stopping triggered in round {i+1}. Halting training.")
+        break
 
 # Choose a single, reasonable batch size
-BATCH_SIZE = 32
+# BATCH_SIZE = 32
 
 # Train in a single, long run. Let the callbacks do their job.
 # Set a high number of epochs; early stopping will find the right time to halt.
-hist = cVAE.fit(
-    x=[x_train, y_train],
-    y=[x_train],
-    validation_split=.2,
-    batch_size=BATCH_SIZE,
-    epochs=90,  # A large number
-    callbacks=[reduce_lr, early_stopping]
-)
+# hist = cVAE.fit(
+#     x=[x_train, y_train],
+#     y=[x_train],
+#     validation_split=.2,
+#     batch_size=BATCH_SIZE,
+#     epochs=90,  # A large number
+#     callbacks=[reduce_lr, early_stopping]
+# )
 
 # # fit the model with BN --> increasing batchsize schdedule
 # hist = None  # global history after BS incrase
@@ -209,14 +277,14 @@ cvae_hyperparams = {
         "encoder_resnet_blocks": int(N_blocks),
         "decoder_resnet_blocks": int(N_blocks),
         "learning_rate": lr,
-        "epochs": "4 X 30",
-        "batch_size_schedule": "16*2^i, i=0..3",
+        "epochs": "8 X 5",
+        "batch_size_schedule": "32*2^i, i=1,1,2,2",
         "dataset": "MINAS_0",
         "beta_kl_loss": beta,
         "reduce_lr_factor": reduce_lr_factor,
         "reduce_lr_patience": reduce_lr_patience,
         "y_dim": "64",
-        "misc": "reconstruction loss mse, with early stopping, no br scheduling"
+        "misc": "expanded h, reconstruction loss mse, with early stopping, and br scheduling"
     }
 
 train_id = tracker.create_training_run(
