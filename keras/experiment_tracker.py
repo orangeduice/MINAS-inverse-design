@@ -59,14 +59,16 @@ class ExperimentTracker:
                 
         return max_id + 1
 
-    def create_training_run(self, model_type: str, hyperparameters: dict, wavelengths: np.ndarray) -> int:
+    def create_training_run(self, model_type: str, hyperparameters: dict, wavelengths: list, test_loss: list = None, val_loss: list = None) -> int:
         """
         Logs a new model training run by saving its metadata to a JSON file.
 
         Args:
             model_type (str): The type of model being trained (e.g., 'cVAE').
             hyperparameters (dict): A dictionary of all hyperparameters used for training.
-            wavelengths (np.ndarray): The wavelengths used in the training data.
+            wavelengths (list): The wavelengths used in the training data.
+            test_loss (list, optional): A list of the training loss per epoch. Defaults to None.
+            val_loss (list, optional): A list of the validation loss per epoch. Defaults to None.
 
         Returns:
             int: The unique 'train_id' for this training run.
@@ -80,8 +82,8 @@ class ExperimentTracker:
             "model_type": model_type,
             "hyperparameters": hyperparameters,
             "wavelengths": wavelengths,
-            # test_loss,
-            # val_loss,
+            "test_loss": test_loss,
+            "val_loss": val_loss,
         }
         
         file_path = os.path.join(self.training_dir, f"{train_id}.json")
@@ -269,10 +271,17 @@ def main():
         "batch_size": 32,
         "dataset": "MNIST"
     }
+    # Dummy data for demonstration
+    dummy_wavelengths = np.linspace(400, 700, 100).tolist()
+    dummy_test_loss = [0.5, 0.4, 0.3]
+    dummy_val_loss = [0.55, 0.45, 0.35]
+
     train_id = tracker.create_training_run(
         model_type="cVAE",
         hyperparameters=cvae_hyperparams,
-        model_save_path=f"models/cvae_model_train_run_{1}.keras"
+        wavelengths=dummy_wavelengths,
+        test_loss=dummy_test_loss,
+        val_loss=dummy_val_loss
     )
     print(f"Logged new training run. Train ID: {train_id}")
     print(f"Data saved in: {tracker.training_dir}/{train_id}.json")
