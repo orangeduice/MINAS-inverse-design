@@ -27,12 +27,12 @@ def create_reflectance_target(frequencies, center_freq, width, depth, order=2):
     # The baseline reflectance is 1.
     baseline = np.ones_like(frequencies)
 
-    # We use a super-Gaussian function to create a flatter dip.
+    # Gaussian function to create a flatter dip.
     # The relationship between FWHM and standard deviation (sigma) is
     # maintained from the standard Gaussian to keep the 'width' parameter intuitive.
     sigma = width / (2 * np.sqrt(2 * np.log(2)))
     
-    # Calculate the super-Gaussian dip.
+    # Calculate Gaussian dip.
     # The 'order' parameter controls the flatness of the dip's bottom.
     flattop_dip = depth * np.exp(-(np.abs((frequencies - center_freq) / (np.sqrt(2) * sigma)))**order)
 
@@ -62,11 +62,11 @@ freq = training_info['wavelengths']
 # target_spectra -= dip
 
 target_frequency_THz = 27.0  # The center frequency of the dip (in THz).
-dip_width_THz = 0.15        # The full width at half maximum (FWHM) of the dip.
-dip_depth = 0.85            # The depth of the dip (1.0 means it goes to zero).
+dip_width_THz = 0.5      # The full width at half maximum (FWHM) of the dip.
+dip_depth = 0.8            # The depth of the dip (1.0 means it goes to zero).
 # An order of 2 is a standard Gaussian (pointy).
 # Higher even numbers (4, 6, 8, etc.) create a flatter bottom.
-flatness_order = 4.0       # New parameter to control the shape.
+flatness_order = 2.0       # New parameter to control the shape.
 
 target_spectra  = create_reflectance_target(
     np.array(freq), 
@@ -74,7 +74,7 @@ target_spectra  = create_reflectance_target(
     dip_width_THz, 
     dip_depth,
     order=flatness_order
-)
+) - (1/20 * np.array(freq))*0.1
 
 
 # %%
@@ -89,12 +89,12 @@ plt.show()
 
 # save target
 target_metadata = {
-        "description": "new target script with flatness_order 4, width 0.15, depth 0.85",
+        "description": "new target script with flatness_order 4, width 0.15, depth 1",
         "condition_vector": target_spectra.tolist()
     }
 
 target_id = tracker.create_inference_target(
-        target_name="gaussian like dip at 27THz",
+        target_name="gaussian like dip at 26.5THz",
         target_metadata=target_metadata
     )
 

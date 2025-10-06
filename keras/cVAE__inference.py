@@ -23,7 +23,7 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
-data_path = 'datasets/pisa_data_expanded_h.h5'
+data_path = 'datasets/pisa_data.h5'
 
 # load data and scalers
 x_train, x_test, y_train, y_test, wavelengths = helper.load_reflection_spectra_data(
@@ -44,7 +44,7 @@ tracker = ExperimentTracker()
 
 keras.backend.clear_session()
 
-train_id = 23 # ID of the trained model to load
+train_id = 26 # ID of the trained model to load
 
 model_folder = "models"
 
@@ -59,7 +59,7 @@ print("loaded decoder from ", decoder_file)
 
 # %%
 
-target_id = 15  # ID of the target to use
+target_id = 8  # ID of the target to use
 
 target_info = tracker.get_inference_target(target_id)
 

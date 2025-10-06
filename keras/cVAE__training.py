@@ -25,7 +25,7 @@ config = tf.compat.v1.ConfigProto()
 config.gpu_options.allow_growth = True
 sess = tf.compat.v1.Session(config=config)
 
-data_path = 'datasets/pisa_data_expanded_h.h5'
+data_path = 'datasets/pisa_data.h5'
 
 # load data and scalers
 x_train, x_test, y_train, y_test, wavelengths = helper.load_reflection_spectra_data(
@@ -47,7 +47,7 @@ print('y_test shape:', y_test.shape)
 keras.backend.clear_session()
 
 # some config for the cVAE
-latent_dim = 2   # for interpretability
+latent_dim = 8   # for interpretability
 N_blocks = 3     # Nr of resblocks between upsamplings
 
 
@@ -213,7 +213,7 @@ for i in [1, 1, 2, 2]:#range(4):
         x=[x_train, y_train], y=[x_train],
         validation_split=.3,
         batch_size=32 * 2**i,
-        epochs=8, # You can increase epochs per round now
+        epochs=10, # You can increase epochs per round now
         # Pass the SAME callback objects each time
         callbacks=[reduce_lr, early_stopping]
     )
@@ -277,7 +277,7 @@ cvae_hyperparams = {
         "encoder_resnet_blocks": int(N_blocks),
         "decoder_resnet_blocks": int(N_blocks),
         "learning_rate": lr,
-        "epochs": "8 X 5",
+        "epochs": "10 X 5",
         "batch_size_schedule": "32*2^i, i=1,1,2,2",
         "dataset": "MINAS_0",
         "beta_kl_loss": beta,

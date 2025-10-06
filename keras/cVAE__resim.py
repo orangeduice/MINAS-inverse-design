@@ -7,7 +7,7 @@ import os
 import slurm_job_submitter
 
 
-run_id = "23-15-55"
+run_id = "26-8-60"
 
 designs_folder = os.path.join("designs", str(run_id))
 
