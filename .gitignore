@@ -209,6 +209,7 @@ __marimo__/
 # Custom ignores for this project
 keras/experiment_log/
 keras/datasets/*.h5
+keras/datasets/*.csv
 keras/datasets/*.pkl
 keras/pisa_cVAE.ipynb
 keras/models/*/*
