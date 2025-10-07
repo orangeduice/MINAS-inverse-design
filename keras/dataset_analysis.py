@@ -1,4 +1,4 @@
-from helper import read_comsol_csv, plot_comsol, sample_from_h5, plot_average_spectrum
+from helper import read_comsol_csv, plot_comsol, sample_from_h5
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -74,7 +74,7 @@ def save_average_spectrum_to_csv(output_filepath: str, avg_data_dict: dict):
             avg_data_dict['average_R']
         ])
         header = "wavelength,average_reflectance"
-        np.savetxt(output_filepath, data_to_save, delimiter=',', header=header, comments='', fmt='%.6f')
+        np.savetxt(output_filepath, data_to_save, delimiter=',', fmt='%.6f')
         print("Average spectrum saved successfully.")
     except Exception as e:
         print(f"Failed to save average spectrum. Error: {e}")
@@ -257,6 +257,8 @@ if __name__ == "__main__":
 
     sampled_data = sample_from_h5(H5_FILENAME, n_samples=NUM_SAMPLES)
     average_data = calculate_average_spectrum(H5_FILENAME)
+
+    save_average_spectrum_to_csv(Path.cwd() / "keras" / "datasets" / "pisa_data_average_spectrum.csv", average_data)
 
     if sampled_data and average_data:
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(24, 7))
