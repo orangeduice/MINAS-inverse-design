@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.stats import norm
 from scipy.stats import cauchy
 from scipy.interpolate import interp1d
+from pathlib import Path
 
 from experiment_tracker import ExperimentTracker
 
@@ -46,11 +47,11 @@ def create_reflectance_target(frequencies, center_freq, width, depth, order=2):
 # %%
 tracker = ExperimentTracker()
 
-training_run_id = 1
+#training_run_id = 1
 
-training_info = tracker.get_training_run(training_run_id)
+#training_info = tracker.get_training_run(training_run_id)
 
-freq = training_info['wavelengths']
+#freq = training_info['wavelengths']
 
 # print(freq)
 
@@ -61,8 +62,14 @@ freq = training_info['wavelengths']
 
 # target_spectra -= dip
 
+data_path = Path.cwd() / "datasets" / "pisa_data_average_spectrum.csv"
+
+average_spectrum = np.loadtxt(data_path, delimiter=',')
+
+freq = average_spectrum[:,0]
+
 target_frequency_THz = 27.0  # The center frequency of the dip (in THz).
-dip_width_THz = 0.5      # The full width at half maximum (FWHM) of the dip.
+dip_width_THz = 0.25      # The full width at half maximum (FWHM) of the dip.
 dip_depth = 0.8            # The depth of the dip (1.0 means it goes to zero).
 # An order of 2 is a standard Gaussian (pointy).
 # Higher even numbers (4, 6, 8, etc.) create a flatter bottom.
@@ -74,7 +81,8 @@ target_spectra  = create_reflectance_target(
     dip_width_THz, 
     dip_depth,
     order=flatness_order
-) - (1/20 * np.array(freq))*0.1
+) * average_spectrum[:,1]
+
 
 
 # %%
