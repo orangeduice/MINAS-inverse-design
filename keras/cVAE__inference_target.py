@@ -83,6 +83,10 @@ target_spectra  = create_reflectance_target(
     order=flatness_order
 ) * average_spectrum[:,1]
 
+freq = freq[-64:]
+
+target_spectra = target_spectra[-64:]
+
 
 
 # %%
@@ -97,12 +101,12 @@ plt.show()
 
 # save target
 target_metadata = {
-        "description": "new target script with flatness_order 4, width 0.15, depth 1",
+        "description": "new target script based on avreage spectra",
         "condition_vector": target_spectra.tolist()
     }
 
 target_id = tracker.create_inference_target(
-        target_name="gaussian like dip at 26.5THz",
+        target_name="new target script based on avreage spectra, dip at 27THz",
         target_metadata=target_metadata
     )
 
