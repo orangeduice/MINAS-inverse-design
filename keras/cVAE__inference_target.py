@@ -64,6 +64,22 @@ tracker = ExperimentTracker()
 
 data_path = Path.cwd() / "datasets" / "pisa_data_average_spectrum.csv"
 
+target_path = Path.cwd() / "datasets" / "75-21-8-IR.jdx"
+
+import jcamp
+
+print(target_path)
+
+jcamp_dict = jcamp.jcamp_read(str(target_path))
+
+print(jcamp_dict)
+plt.plot(jcamp_dict['x'], jcamp_dict['y'])
+plt.title(target_path)
+# plt.xlabel(jcamp_dict['xunits'])
+# plt.ylabel(jcamp_dict['yunits'])
+plt.show()
+
+# %%
 average_spectrum = np.loadtxt(data_path, delimiter=',')
 
 freq = average_spectrum[:,0]
@@ -82,6 +98,9 @@ target_spectra  = create_reflectance_target(
     dip_depth,
     order=flatness_order
 ) * average_spectrum[:,1]
+
+
+
 
 freq = freq[-64:]
 
