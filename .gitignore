@@ -214,3 +214,10 @@ keras/datasets/*.pkl
 keras/pisa_cVAE.ipynb
 keras/models/*/*
 keras/designs/*/*
+
+pytorch/experiment_log/
+pytorch/datasets/*.h5
+pytorch/datasets/*.csv
+pytorch/datasets/*.pkl
+pytorch/models/*/*
+pytorch/designs/*/*
