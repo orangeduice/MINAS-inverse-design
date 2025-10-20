@@ -1,0 +1,15 @@
+name: MINAS_inverse_design_pt
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy
+  - matplotlib
+  - tqdm
+  - h5py
+  - ipykernel
+  - scikit-learn
+  - umap-learn
+  - pytorch
