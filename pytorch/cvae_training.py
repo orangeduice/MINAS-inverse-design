@@ -1,3 +1,4 @@
+# %%
 import os
 import json
 import torch
@@ -8,9 +9,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 import helper
 
 # Assuming cvae_pytorch_mlp.py is in the same directory
-from cvae_training import CVAE_MLP
+from cvae_model import CVAE_MLP
 
-
+# %%
 
 # --- PyTorch Training Equivalents ---
 
@@ -25,7 +26,7 @@ class EarlyStopping:
         self.counter = 0
         self.best_score = None
         self.early_stop = False
-        self.val_loss_min = np.Inf
+        self.val_loss_min = np.inf
         self.delta = delta
         self.path = path
 
@@ -54,14 +55,22 @@ class EarlyStopping:
 def calculate_beta(epoch, params):
     """
     Calculates the KL annealing beta weight for a given epoch.
-    Equivalent to the KLAnnealingCallback.
+    Supports 'linear', 'sigmoid', and 'constant' shapes.
     """
+    shape = params.get('shape', 'constant')
+
+    if shape == 'constant':
+        return params['end_beta']
+
+    # Annealing logic only applies if not constant and within annealing epochs
     if epoch < params['annealing_epochs']:
-        if params['shape'] == 'linear':
+        if shape == 'linear':
             return params['start_beta'] + (params['end_beta'] - params['start_beta']) * (epoch / params['annealing_epochs'])
-        elif params['shape'] == 'sigmoid':
+        elif shape == 'sigmoid':
             sigmoid_val = 1 / (1 + np.exp(-10 * (epoch / params['annealing_epochs'] - 0.5)))
             return params['start_beta'] + (params['end_beta'] - params['start_beta']) * sigmoid_val
+    
+    # After annealing period, or for non-constant shapes, beta is always end_beta
     return params['end_beta']
 
 
@@ -157,15 +166,15 @@ CVAE_HYPERPARAMS = {
 TRAINING_PARAMS = {
     "learning_rate": 0.0002,
     "epochs": 100,
-    "batch_size": 32,
+    "batch_size": 64,
     "reduce_lr_factor": 1/3,
     "reduce_lr_patience": 5,
     "early_stopping_patience": 10,
     "kl_annealing": {
         "start_beta": 1e-6,
         "end_beta": 0.001,
-        "annealing_epochs": 25,
-        "shape": "sigmoid"
+        "annealing_epochs": 50,
+        "shape": "constant"
     }
 }
 
@@ -183,28 +192,28 @@ print(f"Using device: {device}")
 
 # --- Load Data ---
 print("Loading data...")
-x_data, _, y_data, _, wavelengths = help.load_reflection_spectra_data(
+x_data, _, y_data, _, wavelengths = helper.load_reflection_spectra_data(
     DATA_PATH, save_scalers=True
 )
 
-# --- NEW: Slice the condition data (spectrum) to the region of interest ---
-print(f"Original condition shape: {y_data.shape}")
-wl_min = GENERATION_PARAMS["wavelength_min"]
-wl_max = GENERATION_PARAMS["wavelength_max"]
+# # --- NEW: Slice the condition data (spectrum) to the region of interest ---
+# print(f"Original condition shape: {y_data.shape}")
+# wl_min = GENERATION_PARAMS["wavelength_min"]
+# wl_max = GENERATION_PARAMS["wavelength_max"]
 
-# Find the indices of the wavelengths within the desired range
-interest_indices = np.where((wavelengths >= wl_min) & (wavelengths <= wl_max))[0]
+# # Find the indices of the wavelengths within the desired range
+# interest_indices = np.where((wavelengths >= wl_min) & (wavelengths <= wl_max))[0]
 
-if len(interest_indices) == 0:
-    raise ValueError(f"Wavelength range [{wl_min}, {wl_max}] is not valid for the given data.")
+# if len(interest_indices) == 0:
+#     raise ValueError(f"Wavelength range [{wl_min}, {wl_max}] is not valid for the given data.")
 
-# Use these indices to slice the spectral data (y_data)
-y_data_sliced = y_data[:, interest_indices, :]
-print(f"Sliced condition shape for wavelengths {wl_min}-{wl_max}nm: {y_data_sliced.shape}")
+# # Use these indices to slice the spectral data (y_data)
+# y_data_sliced = y_data[:, interest_indices, :]
+# print(f"Sliced condition shape for wavelengths {wl_min}-{wl_max}nm: {y_data_sliced.shape}")
 
 # Convert numpy arrays to torch tensors using the SLICED condition data
 x_tensor = torch.from_numpy(x_data)
-y_tensor = torch.from_numpy(y_data_sliced) # Use the sliced data!
+y_tensor = torch.from_numpy(y_data) # Use the sliced data!
 
 # Create dataset and dataloaders
 dataset = TensorDataset(x_tensor, y_tensor)
@@ -231,24 +240,75 @@ model = CVAE_MLP(
 ).to(device)
 
 print(model)
+# %%
+# for part_name, part in model.named_children():
+#     print(f"Part: {part_name}")
+#     for squen_name, squen in part.named_children():
+#         print(f" Sequence: {squen_name}")
+#         for layer_name, layer in part.named_children():
+#             print(f"  Layer: {layer_name}")
 
+
+
+# %%
 # --- Setup Optimizer, Scheduler, and Early Stopping ---
 optimizer = torch.optim.AdamW(model.parameters(), lr=TRAINING_PARAMS['learning_rate'])
 scheduler = ReduceLROnPlateau(
     optimizer,
     'min',
     factor=TRAINING_PARAMS['reduce_lr_factor'],
-    patience=TRAINING_PARAMS['reduce_lr_patience'],
-    verbose=True
+    patience=TRAINING_PARAMS['reduce_lr_patience']
 )
 early_stopper = EarlyStopping(
-    patience=TRAINING_PARAMS['early_stopping_patience'],
-    verbose=True
+    patience=TRAINING_PARAMS['early_stopping_patience']
 )
+# %%
 
+def create_random_mask(size, fill_value=0, dtype=int):
+    """
+    Creates a 1D NumPy array of 'ones' with a randomly positioned segment 
+    of 'fill_value' (default 0). The start and end points of the segment 
+    are chosen randomly.
+
+    Args:
+        size (int): The total length of the output array.
+        fill_value (int/float): The value to use for the masked segment.
+        dtype (type): The data type of the array elements.
+
+    Returns:
+        np.ndarray: The resulting array.
+    """
+    if size < 2:
+        return np.zeros(size, dtype=dtype)
+    
+    # 1. Generate two random indices within the bounds [0, size]
+    # We use size+1 because we want to include 'size' as a possible end-point
+    # (e.g., for a size=10 array, [0:10] covers the whole array).
+    indices = np.random.randint(0, size + 1, size=2)
+
+    # 2. Determine the start and end of the slice
+    start_index = np.min(indices)
+    end_index = np.max(indices) # This is the exclusive end index
+    
+    # 3. Create and set the array
+    arr = np.zeros(size, dtype=dtype)
+    arr[start_index:end_index] = fill_value
+
+    length = end_index - start_index
+    # print(f"Generated range: [{start_index}:{end_index}] (Length: {length})")
+    return arr
+
+
+# %%
+print("Creating random mask example...")
+mask_example = create_random_mask(size=81, fill_value=1)
+print(f"Random mask: {mask_example}")
+# %%
 # --- Training Loop ---
 print("Starting training...")
 history = {'train_loss': [], 'val_loss': [], 'beta': []}
+
+mask_nums = 50 # number of masked conditions per batch
 
 for epoch in range(TRAINING_PARAMS['epochs']):
     # -- Training --
@@ -258,15 +318,18 @@ for epoch in range(TRAINING_PARAMS['epochs']):
     history['beta'].append(beta)
     
     for batch_idx, (design, condition) in enumerate(train_loader):
-        design, condition = design.to(device), condition.to(device)
+        for i in range(mask_nums): 
+            design, condition = design.to(device), condition.to(device)     
+            condition = condition * torch.from_numpy(create_random_mask(condition.shape[1], fill_value=0)).unsqueeze(-1).to(device)
+            
         
-        optimizer.zero_grad()
-        recon_design, mu, logvar = model(design, condition)
-        losses = model.loss_function(recon_design, design, mu, logvar, beta)
-        loss = losses['loss']
-        loss.backward()
-        optimizer.step()
-        
+            optimizer.zero_grad()
+            recon_design, mu, logvar = model(design, condition)
+            losses = model.loss_function(recon_design, design, mu, logvar, beta)
+            loss = losses['loss']
+            loss.backward()
+            optimizer.step()
+            
         train_loss_epoch += loss.item()
 
     avg_train_loss = train_loss_epoch / len(train_loader)
@@ -277,9 +340,11 @@ for epoch in range(TRAINING_PARAMS['epochs']):
     val_loss_epoch = 0
     with torch.no_grad():
         for batch_idx, (design, condition) in enumerate(val_loader):
-            design, condition = design.to(device), condition.to(device)
-            recon_design, mu, logvar = model(design, condition)
-            losses = model.loss_function(recon_design, design, mu, logvar, beta)
+            for i in range(mask_nums):
+                design, condition = design.to(device), condition.to(device)
+                condition = condition * torch.from_numpy(create_random_mask(condition.shape[1], fill_value=0)).unsqueeze(-1).to(device)
+                recon_design, mu, logvar = model(design, condition)
+                losses = model.loss_function(recon_design, design, mu, logvar, beta)
             val_loss_epoch += losses['loss'].item()
     
     avg_val_loss = val_loss_epoch / len(val_loader)
@@ -289,10 +354,10 @@ for epoch in range(TRAINING_PARAMS['epochs']):
     
     # Update LR scheduler and check for early stopping
     scheduler.step(avg_val_loss)
-    early_stopper(avg_val_loss, model)
-    if early_stopper.early_stop:
-        print("Early stopping triggered")
-        break
+    # early_stopper(avg_val_loss, model)
+    # if early_stopper.early_stop:
+    #     print("Early stopping triggered")
+    #     break
 
 # Load best model weights saved by EarlyStopping
 model.load_state_dict(torch.load('checkpoint.pt'))
@@ -302,19 +367,19 @@ model.load_state_dict(torch.load('checkpoint.pt'))
 plot_history(history, save_path="loss_curve_pytorch.png")
 
 # %%
-tracker = MockExperimentTracker()
-all_hyperparams = {**CVAE_HYPERPARAMS, **TRAINING_PARAMS, **GENERATION_PARAMS}
+# tracker = MockExperimentTracker()
+# all_hyperparams = {**CVAE_HYPERPARAMS, **TRAINING_PARAMS, **GENERATION_PARAMS}
 
-save_experiment(tracker, model, all_hyperparams, wavelengths, history)
+# save_experiment(tracker, model, all_hyperparams, wavelengths, history)
 
-# --- NEW: Generate a sample design using the trained model ---
-print("\n--- Generating sample designs ---")
-# Take the first validation sample's condition as an example
-sample_condition_slice = val_dataset[0][1] # This is already a tensor
+# # --- NEW: Generate a sample design using the trained model ---
+# print("\n--- Generating sample designs ---")
+# # Take the first validation sample's condition as an example
+# sample_condition_slice = val_dataset[0][1] # This is already a tensor
 
-# Generate 5 different designs for the same spectral condition
-generated_designs = generate_designs(model, sample_condition_slice, n_samples=5, device=device)
+# # Generate 5 different designs for the same spectral condition
+# generated_designs = generate_designs(model, sample_condition_slice, n_samples=5, device=device)
 
-print(f"Generated {generated_designs.shape[0]} designs.")
-print(f"Shape of one generated design: {generated_designs[0].shape}")
-# You can now save or visualize `generated_designs.cpu().numpy()`
+# print(f"Generated {generated_designs.shape[0]} designs.")
+# print(f"Shape of one generated design: {generated_designs[0].shape}")
+# # You can now save or visualize `generated_designs.cpu().numpy()`
