@@ -70,19 +70,52 @@ import jcamp
 
 print(target_path)
 
-jcamp_dict = jcamp.jcamp_read(str(target_path))
+jcamp_dict = jcamp.jcamp_readfile(str(target_path))
 
-print(jcamp_dict)
-plt.plot(jcamp_dict['x'], jcamp_dict['y'])
-plt.title(target_path)
-# plt.xlabel(jcamp_dict['xunits'])
-# plt.ylabel(jcamp_dict['yunits'])
-plt.show()
 
-# %%
+
+freq_jdx = np.array(jcamp_dict['x']*0.0299792458)
+
 average_spectrum = np.loadtxt(data_path, delimiter=',')
 
 freq = average_spectrum[:,0]
+
+freq = freq[-64:]
+
+low_val = freq[0]
+high_val = freq[-1]
+
+print(low_val, high_val)
+
+mask = (freq_jdx >= low_val) & (freq_jdx <= high_val)
+
+freq_jdx = freq_jdx[mask]
+
+y_jdx = jcamp_dict['y'][mask]
+
+plt.plot(freq_jdx, (1 - y_jdx)*1)
+plt.show()
+
+# The desired number of points for the new, low-resolution array
+num_points = 64
+
+# 1. Create a set of original "x" coordinates (the indices)
+original_indices = np.arange(len(freq_jdx))
+
+# 2. Create a new set of evenly spaced "x" coordinates for the new points
+new_indices = np.linspace(original_indices[0], original_indices[-1], num=num_points)
+
+# 3. Interpolate the original data at the new index locations
+low_res_array_x = np.interp(new_indices, original_indices, freq_jdx)
+low_res_array_y = np.interp(new_indices, original_indices, y_jdx)
+print(low_res_array_x .shape, low_res_array_y.shape)
+plt.plot(low_res_array_x, 1 - (3000*low_res_array_y))
+plt.ylabel(jcamp_dict["yunits"])
+plt.xlabel("THz")
+plt.show()
+
+# %%
+
 
 target_frequency_THz = 27.0  # The center frequency of the dip (in THz).
 dip_width_THz = 0.25      # The full width at half maximum (FWHM) of the dip.
@@ -91,20 +124,20 @@ dip_depth = 0.8            # The depth of the dip (1.0 means it goes to zero).
 # Higher even numbers (4, 6, 8, etc.) create a flatter bottom.
 flatness_order = 2.0       # New parameter to control the shape.
 
-target_spectra  = create_reflectance_target(
-    np.array(freq), 
-    target_frequency_THz, 
-    dip_width_THz, 
-    dip_depth,
-    order=flatness_order
-) * average_spectrum[:,1]
+# target_spectra  = create_reflectance_target(
+#     np.array(freq), 
+#     target_frequency_THz, 
+#     dip_width_THz, 
+#     dip_depth,
+#     order=flatness_order
+# ) * average_spectrum[:,1]
 
-
+target_spectra = 1 - (3000*low_res_array_y)
 
 
 freq = freq[-64:]
 
-target_spectra = target_spectra[-64:]
+# target_spectra = target_spectra[-64:]
 
 
 
@@ -120,12 +153,12 @@ plt.show()
 
 # save target
 target_metadata = {
-        "description": "new target script based on avreage spectra",
+        "description": "new target script based on Ethylene oxide",
         "condition_vector": target_spectra.tolist()
     }
 
 target_id = tracker.create_inference_target(
-        target_name="new target script based on avreage spectra, dip at 27THz",
+        target_name="new target script based on Ethylene oxide",
         target_metadata=target_metadata
     )
 
