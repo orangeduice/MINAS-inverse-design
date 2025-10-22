@@ -206,11 +206,15 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
+# VS Code workspace settings
+.vscode/*
+
 # Custom ignores for this project
 keras/experiment_log/
 keras/datasets/*.h5
 keras/datasets/*.csv
 keras/datasets/*.pkl
+keras/datasets/*.jdx
 keras/pisa_cVAE.ipynb
 keras/models/*/*
 keras/designs/*/*
@@ -219,5 +223,6 @@ pytorch/experiment_log/
 pytorch/datasets/*.h5
 pytorch/datasets/*.csv
 pytorch/datasets/*.pkl
+pytorch/datasets/*.jdx
 pytorch/models/*/*
 pytorch/designs/*/*
