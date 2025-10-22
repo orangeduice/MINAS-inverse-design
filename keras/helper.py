@@ -31,12 +31,12 @@ def load_reflection_spectra_data(path_h5, save_scalers=True, test_fraction=0.05)
 
     geo = geo[:,geo_mask]
 
-    # clip R spectra to 64 points
-    if R_spec.shape[1] > 64:
-        R_spec = R_spec[:, -64:]
+    # # clip R spectra to 64 points
+    # if R_spec.shape[1] > 64:
+    #     R_spec = R_spec[:, -64:]
 
-    if wavelengths.shape[0] > 64:
-        wavelengths = wavelengths[-64:]
+    # if wavelengths.shape[0] > 64:
+    #     wavelengths = wavelengths[-64:]
 
     # if necessary, add a channel dimension to the spectra (keras: channels last)
     if R_spec.shape[-1] != 1:
