@@ -6,7 +6,7 @@ FROM tensorflow/tensorflow:2.15.0-gpu
 WORKDIR /app
 
 RUN apt-get update && \
-    apt-get install -y git && \
+    apt-get install -y git
 
 # TensorFlow 2.15.0 is already installed in the base image,
 # so we don't need to run 'pip install' for it.
