@@ -128,7 +128,7 @@ def plot_umap_embedding(ax: Axes, h5_filepath: str, color_by_geo_index: int = 0)
             spectra_max = np.min(spectra, axis=1, keepdims=True)
 
 
-        reducer = umap.UMAP(random_state=42) #n_neighbors=15, min_dist=0.1, n_components=2, 
+        reducer = umap.UMAP(random_state=42) #n_neighbors=15, min_dist=0.1, n_components=2,
         embedding = reducer.fit_transform(geo_data)
 
         scatter = ax.scatter(
@@ -250,15 +250,23 @@ def plot_umap_embedding(ax: Axes, h5_filepath: str, color_by_geo_index: int = 0)
 
 if __name__ == "__main__":
 
-    H5_FILENAME = Path.cwd() / "keras" / "datasets" / "pisa_data.h5"
+    H5_FILENAME = Path.cwd() / "keras" / "mounted_datasets" / "pisa_data.h5"
+    BASE_SPECTRUM = H5_FILENAME = Path.cwd() / "keras" / "mounted_datasets" / "SiC_bulk__25-29THz.csv"
     NUM_SAMPLES = 8
 
-    
+
 
     sampled_data = sample_from_h5(H5_FILENAME, n_samples=NUM_SAMPLES)
+
+    print(sampled_data)
     average_data = calculate_average_spectrum(H5_FILENAME)
 
-    save_average_spectrum_to_csv(Path.cwd() / "keras" / "datasets" / "pisa_data_average_spectrum.csv", average_data)
+    bulk_spectrum = read_comsol_csv(BASE_SPECTRUM)
+
+    for idx, i in enumerate(sampled_data["R"]):
+        sampled_data["R"][idx] = sampled_data["R"][idx] - bulk_spectrum["Reflectance (1)"]
+
+    save_average_spectrum_to_csv(Path.cwd() / "keras" / "mounted_datasets" / "pisa_data_average_spectrum.csv", average_data)
 
     if sampled_data and average_data:
         fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(24, 7))
@@ -266,7 +274,7 @@ if __name__ == "__main__":
 
         plot_sampled_spectra(ax1, sampled_data)
         plot_average_spectrum(ax2, average_data)
-        plot_umap_embedding(ax3, H5_FILENAME)
+        # plot_umap_embedding(ax3, H5_FILENAME)
 
         plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        plt.show()
+        plt.savefig("dataset_test.png")

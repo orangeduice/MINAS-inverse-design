@@ -58,7 +58,7 @@ def process_spectra(h5_path, dataset_name, output_dataset_name, **kwargs):
                 widths = properties.get('widths', [])
                 left_ips = properties.get('left_ips', [])
                 right_ips = properties.get('right_ips', [])
-                
+
                 if len(widths) > 0:
                     for j in range(len(peaks)):
                         # Get the start and end of the dip based on the calculated width
@@ -69,7 +69,7 @@ def process_spectra(h5_path, dataset_name, output_dataset_name, **kwargs):
             # Save the results back into the H5 file
             if output_dataset_name in f:
                 del f[output_dataset_name] # Overwrite if exists
-            
+
             f.create_dataset(output_dataset_name, data=dip_masks)
             print(f"Processing complete. Dip masks saved as '{output_dataset_name}'.")
 
@@ -113,8 +113,8 @@ def visualize_result(h5_path, spectrum_index=0):
         lines, labels = ax1.get_legend_handles_labels()
         lines2, labels2 = ax2.get_legend_handles_labels()
         ax2.legend(lines + lines2, labels + labels2, loc='lower right')
-        
-        plt.show()
+        plt.savefig("dataset_test.png")
+        # plt.show()
 
     except Exception as e:
         print(f"Could not visualize the result. Error: {e}")
@@ -122,7 +122,7 @@ def visualize_result(h5_path, spectrum_index=0):
 # %%
 
 # --- Configuration ---
-H5_FILE_PATH = 'datasets/pisa_data.h5'
+H5_FILE_PATH = 'keras/mounted_datasets/pisa_data.h5'
 
 # Create the dummy data file for the example
 
@@ -132,7 +132,7 @@ H5_FILE_PATH = 'datasets/pisa_data.h5'
 dip_params = {
     #"prominence": 0.25,  # Minimum vertical distance between the dip and its surroundings.
     "width": 0.01,         # Minimum width of the dip in data points.
-    "reative, height": 0.5    # Relative height at which the dip width is measured. 0.5 is a full-width half-maximum.
+    "height": 0.5    # Relative height at which the dip width is measured. 0.5 is a full-width half-maximum.
 }
 
 # --- Run Processing ---
