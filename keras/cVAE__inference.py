@@ -28,15 +28,15 @@ data_path = 'datasets/pisa_data.h5'
 # load data and scalers
 x_train, x_test, y_train, y_test, wavelengths = helper.load_reflection_spectra_data(
     data_path, save_scalers=False)
-scaler_geo = pickle.load(
-    open('{}_scalers.pkl'.format(os.path.splitext(data_path)[0]), 'rb'))
+# scaler_geo = pickle.load(
+#     open('{}_scalers.pkl'.format(os.path.splitext(data_path)[0]), 'rb'))
 
 print('x_train shape:', x_train.shape)
 print('y_train shape:', y_train.shape)
 print('x_test shape:', x_test.shape)
 print('y_test shape:', y_test.shape)
 # %%
-print('{}_scalers.pkl'.format(os.path.splitext(data_path)[0]))
+# print('{}_scalers.pkl'.format(os.path.splitext(data_path)[0]))
 
 # %%
 
@@ -44,11 +44,11 @@ tracker = ExperimentTracker()
 
 keras.backend.clear_session()
 
-train_id = 26 # ID of the trained model to load
+train_id = 2 # ID of the trained model to load
 
-model_folder = "models"
+model_folder = "pre_models"
 
-decoder_file = os.path.join(model_folder, str(train_id),"pisa_cVAE_dec.h5")
+decoder_file = os.path.join(model_folder, str(train_id),"pisa_pre_cVAE_dec.h5")
 
 # load trained decoder
 decoder = keras.models.load_model(decoder_file)
@@ -59,7 +59,7 @@ print("loaded decoder from ", decoder_file)
 
 # %%
 
-target_id = 8  # ID of the target to use
+target_id = 3  # ID of the target to use
 
 target_info = tracker.get_inference_target(target_id)
 
@@ -70,10 +70,10 @@ target_spectra = target_info["target_metadata"]["condition_vector"]
 print(target_spectra)
 # %%
 # evaluate 9 positions in latent space
-num_pred = 9
-z_sample =  np.random.randn(num_pred, 2)  #np.array([[i, o] for i, o in zip( np.random.uniform(-1, 1, 9), np.random.uniform(-1, 1, 9))])
-
-# z_sample = np.array([[i, i] for i in np.linspace(-1, 1, num_pred)])
+num_pred = 3
+# z_sample =  np.random.randn(num_pred, 2)*0.5  #np.array([[i, o] for i, o in zip( np.random.uniform(-1, 1, 9), np.random.uniform(-1, 1, 9))])
+z_sample = np.array([[i, i] for i in np.linspace(-0.5, 0.5, num_pred)])
+# z_sample = np.array([[i, i] for i in np.linspace(-0.5, 0.5, num_pred)])
 
 target_spectra_tf = tf.expand_dims(tf.convert_to_tensor(target_spectra),1)
 target_spectra_tf = tf.repeat(tf.expand_dims(target_spectra_tf, axis=0), repeats=num_pred, axis=0)
@@ -84,12 +84,29 @@ print(z_sample)
 
 # %%
 
-decoder_in = [z_sample, target_spectra_tf]
-designs_predict = tf.squeeze(decoder.predict(decoder_in, verbose=0))
+for i, o in zip(np.linspace(-0.5, 0.5, 3), np.linspace(0.5, -0.5, 3)):
+    num_pred = 3
+    # z_sample =  np.random.randn(num_pred, 2)*0.5  #np.array([[i, o] for i, o in zip( np.random.uniform(-1, 1, 9), np.random.uniform(-1, 1, 9))])
+    #z_sample = np.array([[i, i] for i in np.linspace(-0.5, 0.5, num_pred)])
+    # z_sample = np.array([[i, i] for i in np.linspace(-0.5, 0.5, num_pred)])
+    z_sample = np.array([[i,i]])
+    target_spectra_tf = tf.expand_dims(tf.convert_to_tensor(target_spectra),1)
+    target_spectra_tf = tf.repeat(tf.expand_dims(target_spectra_tf, axis=0), repeats=1, axis=0)
 
-print(designs_predict)
+    print(target_spectra_tf.shape)
+    print(z_sample)
 
 
+    decoder_in = [z_sample, target_spectra_tf]
+    designs_predict = tf.squeeze(decoder.predict(decoder_in, verbose=0))
+
+    print(designs_predict)
+
+
+
+    plt.plot(wavelengths, designs_predict, label='Predicted Design {}'.format(i))
+
+# plt.legend()
 # %%
 
 designs_predict_physical = scaler_geo.inverse_transform(designs_predict)

@@ -1,3 +1,4 @@
+# %%
 from helper import read_comsol_csv, plot_comsol, sample_from_h5
 
 import matplotlib.pyplot as plt
@@ -9,19 +10,20 @@ import matplotlib.pyplot as plt
 import os
 from matplotlib.axes import Axes
 import umap
+import helper
 
 ## -------------------
 ## Data Loading, Calculation, and Saving
 ## -------------------
-
-def sample_from_h5(h5_filepath: str, n_samples: int = 5, random_sample: bool = True):
+# %%
+def sample_from_h5(h5_filepath: str, data_name: str, n_samples: int = 5, random_sample: bool = True):
     """Samples data points from an H5 file with a specific structure."""
     if not os.path.exists(h5_filepath):
         print(f"Error: File not found at {h5_filepath}")
         return None
     try:
         with h5py.File(h5_filepath, 'r') as f:
-            r_dset = f['R']
+            r_dset = f[data_name]
             total_records = r_dset.shape[0]
             if n_samples > total_records:
                 n_samples = total_records
@@ -31,7 +33,7 @@ def sample_from_h5(h5_filepath: str, n_samples: int = 5, random_sample: bool = T
             else:
                 indices = np.arange(n_samples)
             return {
-                "R": r_dset[indices, :],
+                data_name: r_dset[indices, :],
                 "wavelengths": f['wavelengths'][:],
                 "geo": f['geo'][indices, :],
                 "indices": indices
@@ -83,17 +85,17 @@ def save_average_spectrum_to_csv(output_filepath: str, avg_data_dict: dict):
 ## Plotting Functions
 ## -------------------
 
-def plot_sampled_spectra(ax: Axes, data_dict: dict):
+def plot_sampled_spectra(ax: Axes, data_dict: dict, to_plot: str = 'R'):
     """Plots the sampled 'R' spectra on a given Matplotlib Axes."""
-    for i in range(data_dict['R'].shape[0]):
+    for i in range(data_dict[to_plot].shape[0]):
         ax.plot(
             data_dict['wavelengths'],
-            data_dict['R'][i, :],
+            data_dict[to_plot][i, :],
             label=f"Index {data_dict['indices'][i]}"
         )
     ax.set_title(f'Random Sample of {len(data_dict["indices"])} Spectra')
     ax.set_xlabel('Wavelength (nm)')
-    ax.set_ylabel('Reflectance (R)')
+    ax.set_ylabel(f'Reflectance ({to_plot})')
     ax.legend(title="Original Index", fontsize='small')
     ax.grid(True)
 
@@ -247,34 +249,44 @@ def plot_umap_embedding(ax: Axes, h5_filepath: str, color_by_geo_index: int = 0)
 # axes.set_ylabel("Reflectance")
 # axes.legend()
 # plt.show()
+# %%
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
-    H5_FILENAME = Path.cwd() / "keras" / "mounted_datasets" / "pisa_data.h5"
-    BASE_SPECTRUM = H5_FILENAME = Path.cwd() / "keras" / "mounted_datasets" / "SiC_bulk__25-29THz.csv"
-    NUM_SAMPLES = 8
-
+H5_FILENAME = Path.cwd() / "datasets" / "pisa_data.h5"
+BASE_SPECTRUM = Path.cwd() / "datasets" / "SiC_bulk__25-29THz.csv"
 
 
-    sampled_data = sample_from_h5(H5_FILENAME, n_samples=NUM_SAMPLES)
+NUM_SAMPLES = 8
 
-    print(sampled_data)
-    average_data = calculate_average_spectrum(H5_FILENAME)
 
-    bulk_spectrum = read_comsol_csv(BASE_SPECTRUM)
+sampled_data = sample_from_h5(H5_FILENAME, "R_norm", n_samples=NUM_SAMPLES)
 
-    for idx, i in enumerate(sampled_data["R"]):
-        sampled_data["R"][idx] = sampled_data["R"][idx] - bulk_spectrum["Reflectance (1)"]
+# print(sampled_data)
+# average_data = calculate_average_spectrum(H5_FILENAME)
 
-    save_average_spectrum_to_csv(Path.cwd() / "keras" / "mounted_datasets" / "pisa_data_average_spectrum.csv", average_data)
+bulk_spectrum = read_comsol_csv(BASE_SPECTRUM)
 
-    if sampled_data and average_data:
-        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(24, 7))
-        fig.suptitle("Spectral Data Analysis", fontsize=20)
+# for idx, i in enumerate(sampled_data["R"]):
+#     sampled_data["R"][idx] = sampled_data["R"][idx] + ( 1 - bulk_spectrum["Reflectance (1)"])
 
-        plot_sampled_spectra(ax1, sampled_data)
-        plot_average_spectrum(ax2, average_data)
-        # plot_umap_embedding(ax3, H5_FILENAME)
+# save_average_spectrum_to_csv(Path.cwd() / "mounted_datasets" / "pisa_data_average_spectrum.csv", average_data)
 
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-        plt.savefig("dataset_test.png")
+if True:
+    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(24, 7))
+    fig.suptitle("Spectral Data Analysis", fontsize=20)
+
+    plot_sampled_spectra(ax1, sampled_data, to_plot='R_norm')
+    # plot_average_spectrum(ax2, average_data)
+
+    ax3.plot(bulk_spectrum["freq (THz)"], bulk_spectrum["Reflectance (1)"], color='green', label='Bulk SiC Spectrum')
+    ax3.set_title('Bulk SiC Spectrum from COMSOL')
+    ax3.set_ylim([0, 1])
+    ax3.set_xlabel('Frequency (THz)')
+    ax3.legend()
+    # plot_umap_embedding(ax3, H5_FILENAME)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.show()
+    #plt.savefig("dataset_test.png")
+# %%

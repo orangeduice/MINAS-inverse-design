@@ -5,7 +5,24 @@
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"build": {
 		"dockerfile": "Dockerfile"
-	}
+	},
+
+	"mounts": [
+    // This is the custom mount for your dataset
+    {
+      // 1. HOST PATH: The folder on your local machine containing the data
+      "source": "${localEnv:HOME}/local_datasets",
+
+      // 2. CONTAINER PATH: Where Keras expects to find the data
+      // ${containerWorkspaceFolder} is the default folder opened inside the container (e.g., /workspaces/my-project-name)
+      "target": "${containerWorkspaceFolder}/keras/mounted_datasets",
+
+      "type": "bind"
+    }
+
+    // Note: The main workspace folder is usually mounted automatically,
+    // so you only need to add *extra* mounts here.
+  	]
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	// "features": {},
