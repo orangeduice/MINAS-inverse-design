@@ -36,7 +36,7 @@ def plot_history(history, save_path=None):
         plt.savefig(save_path, dpi=300)
     plt.show()
 
-def save_experiment(tracker, cvae, encoder, decoder, hyperparameters, wavelengths, history, model_folder="pre_models"):
+def save_experiment(tracker, cvae, encoder, decoder, hyperparameters, wavelengths, history, model_folder="models"):
     """Logs the experiment and saves model files."""
     train_id = tracker.create_training_run(
         model_type="cVAE",
@@ -49,9 +49,9 @@ def save_experiment(tracker, cvae, encoder, decoder, hyperparameters, wavelength
     run_folder = os.path.join(model_folder, str(train_id))
     os.makedirs(run_folder, exist_ok=True)
 
-    full_model_file = os.path.join(run_folder, "pisa_pre_cVAE_full.h5")
-    encoder_file = os.path.join(run_folder, "pisa_pre_cVAE_enc.h5")
-    decoder_file = os.path.join(run_folder, "pisa_pre_cVAE_dec.h5")
+    full_model_file = os.path.join(run_folder, "pisa_cVAE_full.h5")
+    encoder_file = os.path.join(run_folder, "pisa_cVAE_enc.h5")
+    decoder_file = os.path.join(run_folder, "pisa_cVAE_dec.h5")
 
     cvae.save(full_model_file)
     encoder.save(encoder_file)
@@ -67,16 +67,16 @@ def save_experiment(tracker, cvae, encoder, decoder, hyperparameters, wavelength
 """Main function to run the CVAE training pipeline."""
 # --- Configuration ---
 CVAE_HYPERPARAMS = {
-    "architecture_type": "mlp", # 'conv' or 'mlp'
-    "latent_dim": 4,
-    "n_blocks": 3,
+    "architecture_type": 'mlp', #'conv', # or 'mlp'
+    "latent_dim": 2,
+    "n_blocks": 5,
     "dataset": "pisa_data"
 }
 
 TRAINING_PARAMS = {
     "learning_rate": 0.0001,
     "epochs": 100,
-    "batch_size": 128,
+    "batch_size": 64,
     "reduce_lr_factor": 1/3,
     "reduce_lr_patience": 10,
     "early_stopping_patience": 10,
@@ -103,13 +103,10 @@ x_train, _, y_train, _, wavelengths = helper.load_data_from_h5(
     input_name='R_norm',
     save_scalers=True
 )
+
+
 print(f"x_train shape: {x_train.shape}")
 print(f"y_train shape: {y_train.shape}")
-
-# --- 1. Define Spectral Range and Create Mask ---
-print("Creating and applying spectral mask...")
-FREQU_MIN = 26.0  # THz
-FREQU_MAX = 27.0  # THz
 
 # mask = (wavelengths >= FREQU_MIN) & (wavelengths <= FREQU_MAX)
 
@@ -186,7 +183,7 @@ history = cvae.fit(
 )
 # %%
 # --- Plot and Save ---
-plot_history(history, save_path="loss_curve_with_annealing.png")
+plot_history(history, save_path="loss_curve_spectra_cVAE.png")
 # %%
 tracker = ExperimentTracker()
 all_hyperparams = {**CVAE_HYPERPARAMS, **TRAINING_PARAMS}

@@ -42,7 +42,7 @@ fig, axes = plt.subplots(1, 1, figsize=(12, 6))
 # ID = "7-5-9"
 # ID = "7-9-15"
 # ID = "7-6-10"
-ID = "25-9-58"
+ID = "4-2-6"
 
 run_folder = Path.cwd() / "designs" / ID
 

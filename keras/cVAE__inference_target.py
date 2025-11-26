@@ -181,19 +181,19 @@ def create_mask(size, start_w, end_w, fill_value=0, dtype=int):
 
 # %%
 
-target_spectra = create_mask(81, 26, 27, fill_value=1.0, dtype=float)
+target_spectra = create_mask(81, 26.95, 27.05, fill_value=1.0, dtype=float)
 
 print(target_spectra)
 # %%
 
 # save target
 target_metadata = {
-        "description": "new target create_mask(81, 26.85, 27.15) for pre cVAE",
+        "description": "new target create_mask(81, 26.85, 27.15) for spectra cVAE",
         "condition_vector": target_spectra.tolist()
     }
 
 target_id = tracker.create_inference_target(
-        target_name="pre cVAE",
+        target_name="spectra cVAE dip at 27THz",
         target_metadata=target_metadata
     )
 

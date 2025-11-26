@@ -47,6 +47,11 @@ def load_data_from_h5(
         frequencies = np.array(f_read['wavelengths'], dtype=np.float32) # need to change data header to frequencies
 
     if input_name == 'geo': #geo data needs scaling
+
+        geo_mask = [True, False, True, True, True]
+
+        inputs = inputs[:,geo_mask]
+
         scaler_geo = StandardScaler().fit(inputs)
 
         # save the scalers using pickle

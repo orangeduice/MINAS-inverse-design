@@ -1,3 +1,4 @@
+# %%
 import json
 import subprocess
 import sys
@@ -6,8 +7,8 @@ import os
 
 import slurm_job_submitter
 
-
-run_id = "26-8-60"
+# %%
+run_id = "4-16-10"
 
 designs_folder = os.path.join("designs", str(run_id))
 
@@ -20,3 +21,5 @@ job_script = "js_micropillar_resim.sh"
 slurm_job_submitter.run_submission(run_id, local_param_file, remote_path, job_script)
 
 
+
+# %%

@@ -63,7 +63,7 @@ def save_inference(tracker, train_id, target_id, inference_params, results_path,
         print(designs_predict_physical)
         
         target = np.expand_dims(target, axis=1)
-        wavelengths_cut = np.expand_dims(wavelengths[-64:], axis=1)
+        wavelengths_cut = np.expand_dims(wavelengths, axis=1)
         target_spectra = np.hstack((wavelengths_cut, target))
 
         print("\n--- Retrieving Full Run Details ---")
@@ -119,12 +119,12 @@ setup_gpu()
 
 data_path = 'datasets/pisa_data.h5'
 
-condition_name = 'dip_masks'
-input_name = 'R_norm'
+condition_name = 'dip_masks'#'R_norm'#'dip_masks'
+input_name = 'R_norm'#'geo'#'R_norm'
 
-train_id = 2 # ID of the trained model to load
+train_id = 11 # ID of the trained model to load
 
-target_id = 3  # ID of the target to use
+target_id = 1  # ID of the target to use
 
 
 
@@ -154,18 +154,16 @@ tracker = ExperimentTracker()
 
 keras.backend.clear_session()
 
-train_id = 2 # ID of the trained model to load
+model_folder = "models"
 
-model_folder = "pre_models"
-
-decoder_file = os.path.join(model_folder, str(train_id),"pisa_pre_cVAE_dec.h5")
+decoder_file = os.path.join(model_folder, str(train_id),"pisa_cVAE_dec.h5")
 
 # load trained decoder
 decoder = keras.models.load_model(decoder_file)
 
 training_info = tracker.get_training_run(train_id)
 
-latent_dim = training_info["cvae_hyperparameters"]["latent_dim"]
+latent_dim = training_info["hyperparameters"]["latent_dim"]
 
 print("loaded decoder from ", decoder_file)
 
@@ -180,9 +178,9 @@ target_spectra = target_info["target_metadata"]["condition_vector"]
 print(target_spectra)
 # %%
 # evaluate 3 positions in latent space
-num_pred = 3
+num_pred = 9
 
-z_sample =  np.random.randn(num_pred, latent_dim)*0.5 
+z_sample =  np.random.randn(num_pred, latent_dim)*0.35
 
 decoder_out = make_infrerence(decoder, z_sample, target_spectra)
 
@@ -197,13 +195,15 @@ if input_name == 'geo':
     print(decoder_out_physical)
 else:
     decoder_out_physical = decoder_out
+    for inference in decoder_out_physical:
+        plt.plot(wavelengths, inference)
 
 
 # %%
 # save everything
 
 inference_parameters = {
-    "latent_sampling_details": "np.random.randn(num_pred, 2) ",
+    "latent_sampling_details": "np.random.randn(num_pred, 4) ",
     "num_predictions": int(num_pred),
     "z_samples": z_sample.tolist(),
 }
@@ -214,9 +214,9 @@ save_inference(
     target_id,
     inference_parameters,
     results_path="to be removed",
-    inference_output=decoder_out,
+    inference_output=decoder_out.numpy(),
     target=target_spectra,
-    wavelengths=target_info["target_metadata"]["wavelengths"],
+    wavelengths=wavelengths,
     condition_name="geo"
 )
 

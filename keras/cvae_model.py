@@ -49,6 +49,10 @@ def build_encoder(design_shape, condition_shape, latent_dim, n_blocks, architect
         x = keras.layers.Concatenate()([flat_design, flat_condition])
         x = keras.layers.Dense(512)(x)
         x = keras.layers.LeakyReLU(alpha=1e-1)(x)
+        x = keras.layers.Dense(512)(x)
+        x = keras.layers.LeakyReLU(alpha=1e-1)(x)
+        x = keras.layers.Dense(512)(x)
+        x = keras.layers.LeakyReLU(alpha=1e-1)(x)
         x = keras.layers.Dense(256)(x)
         x = keras.layers.LeakyReLU(alpha=1e-1)(x)
 
@@ -117,6 +121,10 @@ def build_decoder(latent_dim, condition_shape, output_shape, n_blocks, architect
         x = keras.layers.LeakyReLU(alpha=1e-1)(x)
         x = keras.layers.Dense(512)(x)
         x = keras.layers.LeakyReLU(alpha=1e-1)(x)
+        x = keras.layers.Dense(512)(x)
+        x = keras.layers.LeakyReLU(alpha=1e-1)(x)
+        x = keras.layers.Dense(512)(x)
+        x = keras.layers.LeakyReLU(alpha=1e-1)(x)
 
         # Output layer
         output_units = np.prod(output_shape)
@@ -154,6 +162,8 @@ def build_cvae(encoder, decoder, design_shape, condition_shape, initial_beta=0.0
     z_mean, z_var_log, z = encoder([design_in, condition_in])
     design_pred = decoder([z, condition_in])
 
+    latent_dim = np.product(z.shape[1:])
+
     cVAE = keras.Model([design_in, condition_in], design_pred, name="cVAE")
 
     # Make beta a tf.Variable so it can be updated by a callback
@@ -168,12 +178,13 @@ def build_cvae(encoder, decoder, design_shape, condition_shape, initial_beta=0.0
     cVAE.add_metric(reconstruction_loss, name='reconstr_loss', aggregation='mean')
 
     # Add KL divergence loss, weighted by the dynamic beta
-    kl_loss = -0.5 * keras.backend.sum(
+    
+    kl_loss = keras.backend.sum(
         1 + z_var_log - keras.backend.square(z_mean) - keras.backend.exp(z_var_log),
         axis=-1
     )
     # The loss function now multiplies by the model's beta attribute
-    kl_loss = cVAE.beta * keras.backend.mean(kl_loss)
+    kl_loss = cVAE.beta * keras.backend.mean(-0.5 / latent_dim * kl_loss)
     cVAE.add_loss(kl_loss)
     cVAE.add_metric(kl_loss, name='kl_loss', aggregation='mean')
 

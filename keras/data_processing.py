@@ -165,11 +165,11 @@ H5_FILE_PATH = 'datasets/pisa_data.h5'
 # Initialize the processor
 processor = DataProcessing(H5_FILE_PATH)
 
-# processor.normalise(
-#     dataset_name='R',
-#     output_dataset_name='R_norm',
-#     base_spectrum_path='datasets/SiC_bulk__25-29THz.csv'
-# )
+processor.normalise(
+    dataset_name='R',
+    output_dataset_name='R_norm',
+    base_spectrum_path='datasets/SiC_bulk__25-29THz.csv'
+)
 
 # Define dip parameters
 dip_params = {
@@ -182,11 +182,11 @@ dip_params = {
 }
 
 # Process the spectra
-# processor.process_dips(
-#     dataset_name='R_norm',
-#     output_dataset_name='dip_masks',
-#     **dip_params
-# )
+processor.process_dips(
+    dataset_name='R_norm',
+    output_dataset_name='dip_masks',
+    **dip_params
+)
 # %%
 # Visualize results
 processor.visualize_result(
