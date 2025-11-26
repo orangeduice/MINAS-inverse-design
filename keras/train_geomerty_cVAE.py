@@ -75,7 +75,7 @@ CVAE_HYPERPARAMS = {
 
 TRAINING_PARAMS = {
     "learning_rate": 0.0001,
-    "epochs": 2000,
+    "epochs": 200,
     "batch_size": 128*2,
     "reduce_lr_factor": 1/3,
     "reduce_lr_patience": 10,
@@ -172,7 +172,7 @@ history = cvae.fit(
 )
 # %%
 # --- Plot and Save ---
-plot_history(history, save_path="loss_curve_with_annealing.png")
+plot_history(history, save_path="loss_curve_geo_cVAE.png")
 # %%
 tracker = ExperimentTracker()
 all_hyperparams = {**CVAE_HYPERPARAMS, **TRAINING_PARAMS}
