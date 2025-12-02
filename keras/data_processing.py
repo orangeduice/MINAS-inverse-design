@@ -48,6 +48,71 @@ class DataProcessing:
         except Exception as e:
             print(f"Error saving to H5 file: {e}")
 
+    def filter_by_parameter(self, new_h5_path, param_index, threshold, comparison='ge', geo_dataset_name='geo'):
+        """
+        Creates a new H5 file containing only data where a specific parameter meets a condition.
+        
+        Args:
+            new_h5_path (str): Path for the new filtered H5 file.
+            param_index (int): The column index in 'geo' corresponding to the parameter (e.g., h_pill).
+            threshold (float): The value to filter against (e.g., 0.2).
+            comparison (str): 'ge' (>=), 'gt' (>), 'le' (<=), 'lt' (<). Default is 'ge' (keep values >= threshold).
+            geo_dataset_name (str): Name of the dataset containing parameters.
+        """
+        print(f"\nFiltering data based on parameter at index {param_index}...")
+        
+        try:
+            with h5py.File(self.h5_path, 'r') as src, h5py.File(new_h5_path, 'w') as dst:
+                
+                # 1. Load the geometry/parameter data to determine which indices to keep
+                if geo_dataset_name not in src:
+                    print(f"Error: '{geo_dataset_name}' not found in source file.")
+                    return
+
+                geo_data = src[geo_dataset_name][:]
+                total_samples = geo_data.shape[0]
+                
+                # Select the specific column (parameter)
+                param_values = geo_data[:, param_index]
+
+                # 2. Create mask based on condition
+                if comparison == 'ge': # Greater than or equal (Keep >= 0.2)
+                    mask = param_values >= threshold
+                elif comparison == 'gt':
+                    mask = param_values > threshold
+                elif comparison == 'le':
+                    mask = param_values <= threshold
+                elif comparison == 'lt':
+                    mask = param_values < threshold
+                else:
+                    print("Invalid comparison operator. Use 'ge', 'gt', 'le', or 'lt'.")
+                    return
+
+                indices_to_keep = np.where(mask)[0]
+                print(f"Original samples: {total_samples}")
+                print(f"Samples matching criteria: {len(indices_to_keep)}")
+
+                # 3. Iterate through ALL datasets in source and copy/slice them
+                for name, item in src.items():
+                    if isinstance(item, h5py.Dataset):
+                        data = item[:]
+                        
+                        # logic: If the first dimension matches the total number of samples,
+                        # assume it's data that needs to be filtered (sliced).
+                        # Otherwise (like 'wavelengths'), copy it as-is.
+                        if data.shape[0] == total_samples and name != 'wavelengths':
+                            print(f"  > Filtering and copying dataset: {name}")
+                            dst.create_dataset(name, data=data[indices_to_keep])
+                        else:
+                            print(f"  > Copying static/metadata dataset: {name}")
+                            dst.create_dataset(name, data=data)
+            
+            print(f"Successfully created filtered file: {new_h5_path}")
+
+        except Exception as e:
+            print(f"An error occurred during filtering: {e}")
+
+
     def normalise(self, dataset_name, output_dataset_name = 'R_norm', base_spectrum_path = '/datasets/SiC_bulk__25-29THz.csv', **kwargs):
 
         try:
@@ -160,33 +225,43 @@ class DataProcessing:
 # Example usage:
 # if __name__ == "__main__":
 # %%
-H5_FILE_PATH = 'datasets/pisa_data.h5'
+H5_FILE_PATH = 'datasets/pisa_data_filtered.h5'#'datasets/pisa_data.h5'
+
+FILTERED_H5_PATH = 'datasets/pisa_data_filtered.h5'
 
 # Initialize the processor
 processor = DataProcessing(H5_FILE_PATH)
 
-processor.normalise(
-    dataset_name='R',
-    output_dataset_name='R_norm',
-    base_spectrum_path='datasets/SiC_bulk__25-29THz.csv'
-)
 
-# Define dip parameters
-dip_params = {
-    'prominence': 0.05,
-    'width': 0.1,
-    'height': 0.5,
-    # 'prominence': 0.05,
-    # 'width': 0.1,
-    # 'height': 0.02
-}
+# processor.filter_by_parameter(
+#     new_h5_path=FILTERED_H5_PATH,
+#     param_index=0,       # Change this to the column index of h_pill
+#     threshold=0.2,       # The cutoff value
+#     comparison='ge'      # 'ge' = Greater or Equal. (Keeps >= 0.2, Discards < 0.2)
+# )
 
-# Process the spectra
-processor.process_dips(
-    dataset_name='R_norm',
-    output_dataset_name='dip_masks',
-    **dip_params
-)
+# processor.normalise(
+#     dataset_name='R',
+#     output_dataset_name='R_norm',
+#     base_spectrum_path='datasets/SiC_bulk__25-29THz.csv'
+# )
+
+# # Define dip parameters
+# dip_params = {
+#     'prominence': 0.05,
+#     'width': 0.1,
+#     'height': 0.5,
+#     # 'prominence': 0.05,
+#     # 'width': 0.1,
+#     # 'height': 0.02
+# }
+
+# # Process the spectra
+# processor.process_dips(
+#     dataset_name='R_norm',
+#     output_dataset_name='dip_masks',
+#     **dip_params
+# )
 # %%
 # Visualize results
 processor.visualize_result(
