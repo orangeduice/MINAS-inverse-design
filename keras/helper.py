@@ -3,7 +3,7 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
+# from tqdm import tqdm
 import tensorflow as tf
 from tensorflow import keras
 import h5py
@@ -18,49 +18,62 @@ import matplotlib
 import h5py
 
 
+def load_data_from_h5(
+        path_h5,
+        condition_name='dip_masks',
+        input_name='R_norm',
+        save_scalers=True,
+        test_fraction=0.05,
+        random_state=42
+        ):
+    """_summary_
 
-# date: 06/2023 @author: P. Wiecha
-def load_reflection_spectra_data(path_h5, save_scalers=True, test_fraction=0.05):
+    Args:
+        path_h5 (_type_): _description_
+        condition_name (str, optional): _description_. Defaults to 'dip_masks'.
+        input_name (str, optional): _description_. Defaults to 'R_norm'.
+        save_scalers (bool, optional): _description_. Defaults to True.
+        test_fraction (float, optional): _description_. Defaults to 0.05.
+        random_state (int, optional): _description_. Defaults to 42.
+
+    Returns:
+        _type_: _description_
+    """
+
 
     with h5py.File(path_h5) as f_read:
-        R_spec = np.array(f_read['R'], dtype=np.float32)
-        geo = np.array(f_read['geo'], dtype=np.float32)
-        wavelengths = np.array(f_read['wavelengths'], dtype=np.float32)
+        inputs = np.array(f_read[input_name], dtype=np.float32)
+        conditions = np.array(f_read[condition_name], dtype=np.float32)#[:, 22:150]
+        frequencies = np.array(f_read['wavelengths'], dtype=np.float32)#[:, 22:150] # need to change data header to frequencies
 
-    geo_mask = [True, False, True, True, True]
+    if input_name == 'geo': #geo data needs scaling
 
-    geo = geo[:,geo_mask]
+        #geo_mask = [True, False, True, True, True]
 
-    # # clip R spectra to 64 points
-    # if R_spec.shape[1] > 64:
-    #     R_spec = R_spec[:, -64:]
+        #inputs = inputs[:,geo_mask]
 
-    # if wavelengths.shape[0] > 64:
-    #     wavelengths = wavelengths[-64:]
+        scaler_geo = StandardScaler().fit(inputs)
+
+        # save the scalers using pickle
+        if save_scalers:
+            pickle.dump(scaler_geo,
+                        open('{}_scalers.pkl'.format(os.path.splitext(path_h5)[0]), 'wb'))
+
+        # apply scaler
+        inputs = scaler_geo.transform(inputs)
 
     # if necessary, add a channel dimension to the spectra (keras: channels last)
-    if R_spec.shape[-1] != 1:
-        R_spec = np.expand_dims(R_spec, -1)
+    if inputs.shape[-1] != 1:
+        inputs = np.expand_dims(inputs, -1)
 
-    #  separately standardize permittivities and thicknesses
-    scaler_geo = StandardScaler().fit(geo)
-
-    # save the scalers using pickle
-    if save_scalers:
-        pickle.dump(scaler_geo,
-                    open('{}_scalers.pkl'.format(os.path.splitext(path_h5)[0]), 'wb'))
-
-    # apply scaler
-    geo = scaler_geo.transform(geo)
-
-    if geo.shape[-1] != 1:
-        geo = np.expand_dims(geo, -1)
+    if conditions.shape[-1] != 1:
+        conditions = np.expand_dims(conditions, -1)
 
     # split into training and test datasets. Set random state for a reproducible splitting
     x_train, x_test, y_train, y_test = train_test_split(
-        geo, R_spec, test_size=test_fraction, random_state=42)
+        inputs, conditions, test_size=test_fraction, random_state=random_state)
 
-    return x_train, x_test, y_train, y_test, wavelengths
+    return x_train, x_test, y_train, y_test, frequencies
 
 def inverse_scale_geo(geo, scaler_geo):
     """mat and thick are predicted, normalized values. return their inverse transforms"""
