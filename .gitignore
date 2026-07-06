@@ -210,6 +210,7 @@ __marimo__/
 .vscode/*
 
 # Custom ignores for this project
+keras/geomerty_cVAE*/
 keras/experiment_log/inference_targets/*.json
 keras/experiment_log/training_runs/*.json
 keras/experiment_log/inference_runs/*.json
