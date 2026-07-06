@@ -7,7 +7,6 @@ from tensorflow.keras.callbacks import ReduceLROnPlateau, ModelCheckpoint
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 
 def resblock_sequence_down(x_in, N_filter, N_blocks):
     x = x_in
