@@ -1,0 +1,9 @@
+tensorflow
+numpy
+pandas
+matplotlib
+tqdm
+h5py
+pykernel
+scikit-learn
+umap-learn

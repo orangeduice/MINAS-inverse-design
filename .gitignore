@@ -209,6 +209,10 @@ __marimo__/
 # VS Code workspace settings
 .vscode/*
 
+# uv
+.python-version
+uv.lock
+
 # Custom ignores for this project
 keras/geomerty_cVAE*/
 keras/experiment_log/inference_targets/*.json
@@ -221,6 +225,7 @@ keras/datasets/*.jdx
 keras/pisa_cVAE.ipynb
 keras/models/*/*
 keras/designs/*/*
+keras/surrogate_model/*
 
 pytorch/experiment_log/inference_targets/*.json
 pytorch/experiment_log/training_runs/*.json
@@ -231,3 +236,5 @@ pytorch/datasets/*.pkl
 pytorch/datasets/*.jdx
 pytorch/models/*/*
 pytorch/designs/*/*
+
+.depericated/*
