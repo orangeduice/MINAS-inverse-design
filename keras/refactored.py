@@ -15,7 +15,7 @@ import model_architecture as model_arch
 import helper
 
 
-
+# %%
 # ==========================================
 # SETUP & UTILS
 # ==========================================
@@ -29,6 +29,7 @@ def setup_gpus():
         except RuntimeError as e:
             print(e)
 
+# %%
 # ==========================================
 # ARCHITECTURE BUILDERS
 # ==========================================
@@ -96,6 +97,7 @@ def build_decoder(latent_dim, input_shape_condition, output_channels, n_blocks):
     )
     return decoder
 
+# %%
 # ==========================================
 # CVAE MODEL CLASS
 # ==========================================
@@ -219,30 +221,17 @@ class CVAEModel(keras.Model):
             "spec_loss": self.spectral_loss_tracker.result(),
         }
 
-# ==========================================
-# CALLBACKS
-# ==========================================
-class SpectralMismatchCallback(keras.callbacks.Callback):
-    def __init__(self, decoder, surrogate_model, y_val, latent_dim, num_samples=3):
-        super().__init__()
-        self.decoder = decoder
-        self.surrogate_model = surrogate_model
-        self.y_val = y_val
-        self.latent_dim = int(latent_dim)
-        self.num_samples = num_samples
 
-    def on_epoch_end(self, epoch, logs=None):
-        batch_size = len(self.y_val)
-        z_prior = np.random.normal(size=(batch_size, self.latent_dim))
-        generated_geometry = self.decoder.predict([z_prior, self.y_val], verbose=0)
-        simulated_spectra = self.surrogate_model.predict(generated_geometry, verbose=0)
-        
-        mismatch = np.mean(np.square(np.squeeze(self.y_val) - np.squeeze(simulated_spectra)))
-        print(f"\n[Figure of Merit] Epoch {epoch+1} Prior-Sample Spectral Mismatch: {mismatch:.6f}")
-        
-        if logs is not None:
-            logs['val_spectral_mismatch'] = mismatch
 
+
+
+
+
+
+
+
+
+# %%
 # ==========================================
 # EVALUATION & VISUALIZATION UTILS
 # ==========================================
@@ -420,6 +409,7 @@ def generate_min_index_colors(y_data):
     y_reshaped = y_data.reshape(y_data.shape[0], -1)
     return np.argmin(y_reshaped, axis=1)
 
+# %%
 # ==========================================
 # CONFIGURATION
 # ==========================================
@@ -440,208 +430,208 @@ CONFIG = {
     'checkpoint_base_dir': "geomerty_cVAE"
 }
 
+# %%
 # ==========================================
 # MAIN EXECUTION
 # ==========================================
-def main():
-    setup_gpus()
-    keras.backend.clear_session()
+setup_gpus()
+keras.backend.clear_session()
 
-    # 1. Load Data
-    print("Loading data...")
-    x_train, x_test, y_train, y_test, wavelengths = helper.load_data_from_h5(
-        CONFIG['data_path'], condition_name='R', input_name='geo', save_scalers=True)
 
-    #y_train = y_train[:, 35:110]
-    #y_test = y_test[:, 35:110]
-    #wavelengths = wavelengths[35:110]
+# 1. Load Data
+print("Loading data...")
+x_train, x_test, y_train, y_test, wavelengths = helper.load_data_from_h5(
+    CONFIG['data_path'], condition_name='R', input_name='geo', save_scalers=True)
 
-    scaler_path = f"{os.path.splitext(CONFIG['data_path'])[0]}_scalers.pkl"
-    scaler_geo = pickle.load(open(scaler_path, 'rb'))
+#y_train = y_train[:, 35:110]
+#y_test = y_test[:, 35:110]
+#wavelengths = wavelengths[35:110]
 
-    print('x_train shape:', x_train.shape)
-    print('y_train shape:', y_train.shape)
+scaler_path = f"{os.path.splitext(CONFIG['data_path'])[0]}_scalers.pkl"
+scaler_geo = pickle.load(open(scaler_path, 'rb'))
 
-    # 2. Build Model Architecture
-    print("Building models...")
-    encoder = build_encoder(
-        input_shape_design=x_train.shape[1:], 
-        input_shape_condition=y_train.shape[1:], 
-        latent_dim=CONFIG['latent_dim'], 
-        n_blocks=CONFIG['n_blocks']
-    )
-    decoder = build_decoder(
-        latent_dim=CONFIG['latent_dim'], 
-        input_shape_condition=y_train.shape[1:], 
-        output_channels=x_train.shape[-1], 
-        n_blocks=CONFIG['n_blocks']
-    )
+print('x_train shape:', x_train.shape)
+print('y_train shape:', y_train.shape)
+
+# %%
+# 2. Build Model Architecture
+print("Building models...")
+encoder = build_encoder(
+    input_shape_design=x_train.shape[1:], 
+    input_shape_condition=y_train.shape[1:], 
+    latent_dim=CONFIG['latent_dim'], 
+    n_blocks=CONFIG['n_blocks']
+)
+decoder = build_decoder(
+    latent_dim=CONFIG['latent_dim'], 
+    input_shape_condition=y_train.shape[1:], 
+    output_channels=x_train.shape[-1], 
+    n_blocks=CONFIG['n_blocks']
+)
+
+encoder.summary()
+decoder.summary()
+
+try:
+    surrogate_model = keras.models.load_model(CONFIG['surrogate_path'])
+    surrogate_model.trainable = False # Lock weights so CVAE training doesn't alter it
+    print("\nLoaded pre-trained forward surrogate model successfully.")
+except Exception as e:
+    print(f"\nWarning: Could not load surrogate model. Error: {e}")
+    surrogate_model = None
+
+cVAE = CVAEModel(
+    encoder=encoder, 
+    decoder=decoder, 
+    latent_dim=CONFIG['latent_dim'], 
+    beta=CONFIG['static_beta'],
+    surrogate_model=surrogate_model,
+    spectral_weight=CONFIG['spectral_loss_weight']
+)
+
+checkpoint_dir = f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/checkpoints/"
+os.makedirs(checkpoint_dir, exist_ok=True)
+
+# %%
+# 3. Setup Callbacks
+optimizer = keras.optimizers.AdamW(learning_rate=CONFIG['learning_rate'])
+cVAE.compile(optimizer=optimizer) 
+
+callbacks = [
+    #ReduceLROnPlateau(monitor='val_loss', factor=0.66, patience=5, verbose=1),
+    #EarlyStopping(monitor='val_loss', patience=15, verbose=1, restore_best_weights=True)
+]
+
+# if surrogate_model is not None:
+#     callbacks.append(SpectralMismatchCallback(
+#         decoder=decoder, surrogate_model=surrogate_model, 
+#         y_val=y_test, latent_dim=CONFIG['latent_dim']
+#     ))
+
+# %%
+# 4. Training Loop
+hist = None
+for round_cfg in CONFIG['batch_size_rounds']:
+    batch_size = CONFIG['base_batch_size'] * (2 ** round_cfg['multiplier'])
+    epochs_this_round = int(CONFIG['base_epochs'] * round_cfg['epoch_multiplier'])
     
-    encoder.summary()
-    decoder.summary()
-
-    try:
-        surrogate_model = keras.models.load_model(CONFIG['surrogate_path'])
-        surrogate_model.trainable = False # Lock weights so CVAE training doesn't alter it
-        print("\nLoaded pre-trained forward surrogate model successfully.")
-    except Exception as e:
-        print(f"\nWarning: Could not load surrogate model. Error: {e}")
-        surrogate_model = None
-
-    cVAE = CVAEModel(
-        encoder=encoder, 
-        decoder=decoder, 
-        latent_dim=CONFIG['latent_dim'], 
-        beta=CONFIG['static_beta'],
-        surrogate_model=surrogate_model,
-        spectral_weight=CONFIG['spectral_loss_weight']
+    print(f"\n--- Starting Training Round (batch_size={batch_size}, epochs={epochs_this_round}) ---")
+    _h = cVAE.fit(
+        x=[x_train, y_train], 
+        y=x_train, 
+        validation_split=0.3,
+        batch_size=batch_size,
+        epochs=epochs_this_round,
+        #callbacks=callbacks 
     )
 
-    checkpoint_dir = f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/checkpoints/"
-    os.makedirs(checkpoint_dir, exist_ok=True)
+    if hist is None:
+        hist = _h
+    else:
+        for k in hist.history:
+            hist.history[k] = np.concatenate([hist.history[k], _h.history[k]])
 
-    # 3. Setup Callbacks
-    optimizer = keras.optimizers.AdamW(learning_rate=CONFIG['learning_rate'])
-    cVAE.compile(optimizer=optimizer) 
+    if cVAE.stop_training:
+        print("Early stopping triggered. Halting training.")
+        break
 
-    callbacks = [
-        #ReduceLROnPlateau(monitor='val_loss', factor=0.66, patience=5, verbose=1),
-        #EarlyStopping(monitor='val_loss', patience=15, verbose=1, restore_best_weights=True)
-    ]
+# %%
+# 5. Plotting Training Curves
+print("Generating training plots...")
+fig, ax1 = plt.subplots(figsize=(12, 6))
 
-    if surrogate_model is not None:
-        callbacks.append(SpectralMismatchCallback(
-            decoder=decoder, surrogate_model=surrogate_model, 
-            y_val=y_test, latent_dim=CONFIG['latent_dim']
-        ))
+color = 'tab:red'
+ax1.set_xlabel('Epoch')
+ax1.set_ylabel('Total Loss (log scale)', color=color)
+ax1.plot(hist.history['loss'], color=color, linestyle='-', label='Total Loss (Train)')
+ax1.plot(hist.history['val_loss'], color=color, linestyle='--', label='Total Loss (Val)')
+ax1.tick_params(axis='y', labelcolor=color)
+ax1.set_yscale('log')
 
-    # 4. Training Loop
-    hist = None
-    for round_cfg in CONFIG['batch_size_rounds']:
-        batch_size = CONFIG['base_batch_size'] * (2 ** round_cfg['multiplier'])
-        epochs_this_round = int(CONFIG['base_epochs'] * round_cfg['epoch_multiplier'])
-        
-        print(f"\n--- Starting Training Round (batch_size={batch_size}, epochs={epochs_this_round}) ---")
-        _h = cVAE.fit(
-            x=[x_train, y_train], 
-            y=x_train, 
-            validation_split=0.3,
-            batch_size=batch_size,
-            epochs=epochs_this_round,
-            #callbacks=callbacks 
-        )
+ax2 = ax1.twinx()
+ax2.set_ylabel('Component Losses')
+ax2.set_yscale('log')
 
-        if hist is None:
-            hist = _h
-        else:
-            for k in hist.history:
-                hist.history[k] = np.concatenate([hist.history[k], _h.history[k]])
+color_recon = 'tab:blue'
+ax2.plot(hist.history['reconstr_loss'], color=color_recon, linestyle='-', label='Recon Loss (Train)')
+ax2.plot(hist.history['val_reconstr_loss'], color=color_recon, linestyle='--', label='Recon Loss (Val)')
 
-        if cVAE.stop_training:
-            print("Early stopping triggered. Halting training.")
-            break
+color_kl = 'tab:green'
+ax2.plot(hist.history['kl_loss'], color=color_kl, linestyle='-', label='KL Loss (Train)')
+ax2.plot(hist.history['val_kl_loss'], color=color_kl, linestyle='--', label='KL Loss (Val)')
 
-    # 5. Plotting Training Curves
-    print("Generating training plots...")
-    fig, ax1 = plt.subplots(figsize=(12, 6))
-    
-    color = 'tab:red'
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Total Loss (log scale)', color=color)
-    ax1.plot(hist.history['loss'], color=color, linestyle='-', label='Total Loss (Train)')
-    ax1.plot(hist.history['val_loss'], color=color, linestyle='--', label='Total Loss (Val)')
-    ax1.tick_params(axis='y', labelcolor=color)
-    ax1.set_yscale('log')
+if 'spec_loss' in hist.history and sum(hist.history['spec_loss']) > 0:
+    color_specloss = 'tab:orange'
+    ax2.plot(hist.history['spec_loss'], color=color_specloss, linestyle='-', label='Surrogate Loss (Train)')
+    ax2.plot(hist.history['val_spec_loss'], color=color_specloss, linestyle='--', label='Surrogate Loss (Val)')
 
-    ax2 = ax1.twinx()
-    ax2.set_ylabel('Component Losses')
-    ax2.set_yscale('log')
+if 'val_spectral_mismatch' in hist.history:
+    color_spec = 'tab:purple'
+    ax2.plot(hist.history['val_spectral_mismatch'], color=color_spec, linestyle='-.', 
+                linewidth=2.5, label='Spectral Mismatch (Val)')
 
-    color_recon = 'tab:blue'
-    ax2.plot(hist.history['reconstr_loss'], color=color_recon, linestyle='-', label='Recon Loss (Train)')
-    ax2.plot(hist.history['val_reconstr_loss'], color=color_recon, linestyle='--', label='Recon Loss (Val)')
+ax2.tick_params(axis='y')
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
 
-    color_kl = 'tab:green'
-    ax2.plot(hist.history['kl_loss'], color=color_kl, linestyle='-', label='KL Loss (Train)')
-    ax2.plot(hist.history['val_kl_loss'], color=color_kl, linestyle='--', label='KL Loss (Val)')
+plt.title('Training and Validation Losses')
+plot_path = f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/training_losses.png"
+plt.savefig(plot_path, dpi=300, bbox_inches='tight')
+plt.show()
+# %%
 
-    if 'spec_loss' in hist.history and sum(hist.history['spec_loss']) > 0:
-        color_specloss = 'tab:orange'
-        ax2.plot(hist.history['spec_loss'], color=color_specloss, linestyle='-', label='Surrogate Loss (Train)')
-        ax2.plot(hist.history['val_spec_loss'], color=color_specloss, linestyle='--', label='Surrogate Loss (Val)')
+# 6. Evaluation & Latent Diagnostics
+print("\nRunning Diagnostics...")
+analyze_latent_space_from_arrays(encoder, x_test, y_test)
+test_decoder_neglect(encoder, decoder, x_test, y_test)
 
-    if 'val_spectral_mismatch' in hist.history:
-        color_spec = 'tab:purple'
-        ax2.plot(hist.history['val_spectral_mismatch'], color=color_spec, linestyle='-.', 
-                 linewidth=2.5, label='Spectral Mismatch (Val)')
+x_full = np.concatenate([x_train, x_test], axis=0)
+y_full = np.concatenate([y_train, y_test], axis=0)
 
-    ax2.tick_params(axis='y')
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='best')
+color_values = {}
 
-    plt.title('Training and Validation Losses')
-    plot_path = f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/training_losses.png"
-    plt.savefig(plot_path, dpi=300, bbox_inches='tight')
-    plt.show()
+frequency_of_min = wavelengths[generate_min_index_colors(y_full)]
+color_values['frequency of minimum reflectance'] = frequency_of_min
 
-    # 6. Evaluation & Latent Diagnostics
-    print("\nRunning Diagnostics...")
-    analyze_latent_space_from_arrays(encoder, x_test, y_test)
-    test_decoder_neglect(encoder, decoder, x_test, y_test)
+split_mask = np.array([0] * len(x_train) + [1] * len(x_test))
+color_values['train-test split'] = split_mask
 
-    x_full = np.concatenate([x_train, x_test], axis=0)
-    y_full = np.concatenate([y_train, y_test], axis=0)
+# h_pill, d_pill, w_pill, d_sep, w_sep, angle
+geom_param_h_pill = x_full.squeeze()[:, 0]
+color_values['h_pill'] = geom_param_h_pill
+geom_param_d_pill = x_full.squeeze()[:, 1]
+color_values['d_pill'] = geom_param_d_pill
+geom_param_w_pill = x_full.squeeze()[:, 2]
+color_values['w_pill'] = geom_param_w_pill
+geom_param_d_sep = x_full.squeeze()[:, 3]
+color_values['d_sep'] = geom_param_d_sep
+geom_param_w_sep = x_full.squeeze()[:, 4]
+color_values['w_sep'] = geom_param_w_sep
+geom_param_angle = x_full.squeeze()[:, 5]
+color_values['theta_pill'] = geom_param_angle
 
-    color_values = {}
+# %%
+for key, value in color_values.items():
+    print(f"\nVisualizing latent space colored by: {key}")
 
-    frequency_of_min = wavelengths[generate_min_index_colors(y_full)]
-    color_values['frequency of minimum reflectance'] = frequency_of_min
-
-    split_mask = np.array([0] * len(x_train) + [1] * len(x_test))
-    color_values['train-test split'] = split_mask
-
-    # h_pill, d_pill, w_pill, d_sep, w_sep, angle
-    geom_param_h_pill = x_full.squeeze()[:, 0]
-    color_values['h_pill'] = geom_param_h_pill
-    geom_param_d_pill = x_full.squeeze()[:, 1]
-    color_values['d_pill'] = geom_param_d_pill
-    geom_param_w_pill = x_full.squeeze()[:, 2]
-    color_values['w_pill'] = geom_param_w_pill
-    geom_param_d_sep = x_full.squeeze()[:, 3]
-    color_values['d_sep'] = geom_param_d_sep
-    geom_param_w_sep = x_full.squeeze()[:, 4]
-    color_values['w_sep'] = geom_param_w_sep
-    geom_param_angle = x_full.squeeze()[:, 5]
-    color_values['theta_pill'] = geom_param_angle
-
-
-    for key, value in color_values.items():
-        print(f"\nVisualizing latent space colored by: {key}")
-
-        visualize_latent_space(
-            encoder, 
-            x_full, 
-            y_full, 
-            method='umap', 
-            color_values=value,
-            save_path=f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/latent_umap_{key.replace(' ', '_')}.png"
-        )
-
-    # 7. Save models
-    decoder.save("decoder.keras")
-    print("Training pipeline complete.")
-
-
-    #8. Running inference on a random sample from the test set
-
-
-
-
+    visualize_latent_space(
+        encoder, 
+        x_full, 
+        y_full, 
+        method='umap', 
+        color_values=value,
+        save_path=f"{CONFIG['checkpoint_base_dir']}/model_latent{CONFIG['latent_dim']}_blocks{CONFIG['n_blocks']}/latent_umap_{key.replace(' ', '_')}.png"
+    )
 
 
 # %%
-if __name__ == "__main__":
-    main()
+# 7. Save models
+decoder.save("decoder.keras")
+print("Training pipeline complete.")
+
+# %%
+#8. Running inference on a random sample from the test set
+
 
 # %%
